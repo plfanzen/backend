@@ -1,0 +1,85 @@
+// SPDX-FileCopyrightText: 2025 Aaron Dewes <aaron@nirvati.org>
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
+syntax = "proto3";
+
+package plfanzen_ctf;
+
+import "shared.proto";
+
+message SyncChallengesRequest {
+  // No fields needed for this request
+}
+
+message SyncStatus {
+  string commit_hash      = 1;
+  uint64 commit_timestamp = 2;
+  string commit_author    = 3;
+  string commit_title     = 4;
+}
+
+message SyncChallengesResponse {
+  bool       success     = 1;
+  SyncStatus sync_status = 2;
+}
+
+message GetBuildStatusRequest {}
+
+enum BuildStatus {
+  BUILD_STATUS_NOT_REQUIRED = 0;
+  BUILD_STATUS_QUEUED       = 1;
+  BUILD_STATUS_IN_PROGRESS  = 2;
+  BUILD_STATUS_SUCCESS      = 3;
+  BUILD_STATUS_FAILED       = 4;
+}
+
+message GetBuildStatusResponse {
+  map<string, BuildStatus> challenge_build_statuses = 1;
+}
+
+message GetEventConfigurationRequest {}
+
+message CtfCategory {
+  string          name        = 1;
+  optional string description = 2;
+  optional string color       = 3;
+}
+
+message CtfDifficulty {
+  string          name  = 1;
+  optional string color = 2;
+}
+
+message EventConfiguration {
+  string                     event_name              = 1;
+  string                     front_page_md           = 2;
+  string                     rules_md                = 3;
+  uint64                     start_time              = 4;
+  uint64                     end_time                = 5;
+  bool                       use_teams               = 6;
+  optional uint64            registration_start_time = 7;
+  optional uint64            registration_end_time   = 8;
+  optional uint32            max_team_size           = 9;
+  optional uint64            scoreboard_freeze_time  = 10;
+  map<string, CtfCategory>   categories              = 11;
+  map<string, CtfDifficulty> difficulties            = 12;
+}
+
+message GetSyncStatusRequest {}
+
+message GetSyncStatusResponse {
+  SyncStatus sync_status = 1;
+}
+
+// RepositoryService is responsible for interacting with the remote challenge git repository.
+service RepositoryService {
+  // SyncChallenges pulls the latest changes from the remote challenge repository.
+  rpc SyncChallenges(SyncChallengesRequest) returns (SyncChallengesResponse);
+  // GetBuildStatus retrieves the build status of all challenges.
+  rpc GetBuildStatus(GetBuildStatusRequest) returns (GetBuildStatusResponse);
+  // GetEventConfiguration retrieves the event configuration from the repository.
+  rpc GetEventConfiguration(GetEventConfigurationRequest) returns (EventConfiguration);
+  // GetSyncStatus retrieves the current sync status of the repository.
+  rpc GetSyncStatus(GetSyncStatusRequest) returns (GetSyncStatusResponse);
+}

@@ -1,0 +1,36 @@
+// SPDX-FileCopyrightText: 2025 Aaron Dewes <aaron@nirvati.org>
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
+syntax = "proto3";
+
+package plfanzen_ctf;
+
+message Challenge {
+    string id = 1;
+    string name = 2;
+    string description = 3;
+    optional uint64 release_timestamp = 4;
+    optional uint64 end_timestamp = 5;
+    repeated string categories = 6;
+    repeated string authors = 7;
+    // attached files (filename -> content)
+    map<string, bytes> files = 8;
+    bool can_start = 9;
+    uint32 points = 10;
+    string difficulty = 11;
+}
+
+enum Protocol {
+    PROTOCOL_TCP_TLS = 0;
+    PROTOCOL_HTTPS = 1;
+    PROTOCOL_UDP = 2;
+    PROTOCOL_SSH = 3;
+    PROTOCOL_TCP = 4;
+}
+
+message ConnectionInfo {
+    string host = 1;
+    uint32 port = 2;
+    Protocol protocol = 3;
+}

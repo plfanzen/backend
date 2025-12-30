@@ -1,0 +1,84 @@
+// SPDX-FileCopyrightText: 2025 Aaron Dewes <aaron@nirvati.org>
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
+syntax = "proto3";
+
+package plfanzen_ctf;
+
+import "shared.proto";
+
+message SolvedChallenge {
+  // Use 0 if the actor has never solved this challenge
+  int32 actor_nth_solve = 1;
+  int32 times_solved    = 2;
+  int32 current_solves  = 3;
+}
+
+message ListChallengesRequest {
+  string actor = 1;
+  // Map of challenge names to number of times solved by the actor
+  map<string, SolvedChallenge> solved_challenges = 2;
+  // If this is a teams CTF, number of teams competing, otherwise number of individual competitors
+  uint64 total_competitors = 3;
+}
+
+message ListChallengesResponse {
+  repeated Challenge challenges = 1;
+}
+
+message StartChallengeInstanceRequest {
+  string challenge_id = 1;
+  string actor        = 2;
+}
+
+message GetChallengeInstanceStatusRequest {
+  string challenge_id = 1;
+  string actor        = 2;
+}
+
+message StopChallengeInstanceRequest {
+  string challenge_id = 1;
+  string actor        = 2;
+}
+
+message StartChallengeInstanceResponse {
+  string                  instance_id     = 1;
+  repeated ConnectionInfo connection_info = 2;
+}
+
+message StopChallengeInstanceResponse {
+  bool success = 1;
+}
+
+message GetChallengeInstanceStatusResponse {
+  bool                    is_deployed     = 1;
+  bool                    is_ready        = 2;
+  repeated ConnectionInfo connection_info = 3;
+}
+
+message CheckFlagRequest {
+  // If challenge_id is empty, the flag will be checked against all challenges
+  optional string challenge_id = 1;
+  string          actor        = 2;
+  string          flag         = 3;
+}
+
+message CheckFlagResponse {
+  optional string solved_challenge_id = 1;
+}
+
+// ChallengesService is responsible for listing available challenges, as well as
+// starting and stopping challenge instances (if applicable).
+service ChallengesService {
+  // ListChallenges returns a list of all available challenges.
+  rpc ListChallenges (ListChallengesRequest) returns (ListChallengesResponse);
+  // StartChallengeInstance starts a new instance of the specified challenge for the given team.
+  rpc StartChallengeInstance (StartChallengeInstanceRequest) returns (StartChallengeInstanceResponse);
+  // StopChallengeInstance stops the specified challenge instance for the given team.
+  rpc StopChallengeInstance (StopChallengeInstanceRequest) returns (StopChallengeInstanceResponse);
+  // GetChallengeInstanceStatus retrieves the status of a challenge instance for the given team.
+  rpc GetChallengeInstanceStatus (GetChallengeInstanceStatusRequest) returns (GetChallengeInstanceStatusResponse);
+  // CheckFlag verifies if the provided flag is correct for the specified challenge and team.
+  rpc CheckFlag (CheckFlagRequest) returns (CheckFlagResponse);
+}
