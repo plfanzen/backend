@@ -47,8 +47,8 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
     let listener = TcpListener::bind(addr).await?;
 
-    // If a key exists in key.json, use it; otherwise, generate a new one.
-    let key_file = std::path::Path::new("key.json");
+    let key_file = std::env::var("SIGNING_KEY_FILE").unwrap_or_else(|_| "key.json".to_string());
+    let key_file = std::path::Path::new(&key_file);
     if !key_file.exists() {
         let mut csprng = rand::rngs::OsRng;
         let signing_key: SigningKey = SigningKey::generate(&mut csprng);
