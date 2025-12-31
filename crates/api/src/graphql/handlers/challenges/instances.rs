@@ -39,7 +39,7 @@ pub async fn launch_challenge_instance(
     context: &Context,
     challenge_id: String,
 ) -> juniper::FieldResult<bool> {
-    context.require_authentication()?;
+    let auth = context.require_authentication()?;
 
     // TODO: Ensure challenge has been released
 
@@ -48,7 +48,7 @@ pub async fn launch_challenge_instance(
     challenges_client
         .start_challenge_instance(crate::manager_api::StartChallengeInstanceRequest {
             challenge_id,
-            actor: "todo".to_string(),
+            actor: auth.actor.to_string(),
         })
         .await?;
 
@@ -59,14 +59,14 @@ pub async fn stop_challenge_instance(
     context: &Context,
     challenge_id: String,
 ) -> juniper::FieldResult<bool> {
-    context.require_authentication()?;
+    let auth = context.require_authentication()?;
 
     let mut challenges_client = context.challenges_client();
 
     challenges_client
         .stop_challenge_instance(crate::manager_api::StopChallengeInstanceRequest {
             challenge_id,
-            actor: "todo".to_string(),
+            actor: auth.actor.to_string(),
         })
         .await?;
 
@@ -77,14 +77,14 @@ pub async fn get_challenge_instance_status(
     context: &Context,
     challenge_id: String,
 ) -> juniper::FieldResult<Option<InstanceStatus>> {
-    context.require_authentication()?;
+    let auth = context.require_authentication()?;
 
     let mut challenges_client = context.challenges_client();
 
     let response = challenges_client
         .get_challenge_instance_status(crate::manager_api::GetChallengeInstanceStatusRequest {
             challenge_id,
-            actor: "todo".to_string(),
+            actor: auth.actor,
         })
         .await?
         .into_inner();
