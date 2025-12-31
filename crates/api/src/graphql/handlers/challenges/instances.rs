@@ -46,7 +46,7 @@ pub async fn launch_challenge_instance(
     challenges_client
         .start_challenge_instance(crate::manager_api::StartChallengeInstanceRequest {
             challenge_id,
-            actor: auth.actor.to_string(),
+            actor: auth.actor(),
             require_release: auth.role == UserRole::Player,
         })
         .await?;
@@ -65,7 +65,7 @@ pub async fn stop_challenge_instance(
     challenges_client
         .stop_challenge_instance(crate::manager_api::StopChallengeInstanceRequest {
             challenge_id,
-            actor: auth.actor.to_string(),
+            actor: auth.actor(),
         })
         .await?;
 
@@ -83,7 +83,7 @@ pub async fn get_challenge_instance_status(
     let response = challenges_client
         .get_challenge_instance_status(crate::manager_api::GetChallengeInstanceStatusRequest {
             challenge_id,
-            actor: auth.actor,
+            actor: auth.actor(),
         })
         .await?
         .into_inner();

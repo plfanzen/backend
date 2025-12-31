@@ -13,7 +13,7 @@ use juniper::{EmptySubscription, RootNode};
 use juniper_hyper::{graphiql, graphql, playground};
 use tokio::net::TcpListener;
 
-use crate::graphql::{Context, Mutation, Query, Schema};
+use crate::graphql::{AuthenticatedUser, Context, Mutation, Query, Schema};
 
 mod db;
 mod graphql;
@@ -137,18 +137,22 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
                                 None
                             }
                         });
-                        let user_details = auth.and_then(|token| {
-                            graphql::auth::parse_and_validate_jwt::<graphql::auth::AuthJwtPayload>(
-                                &token,
-                                &ctx.keypair.verifying_key(),
-                            )
-                            .ok()
-                        }).map(|jwt| {
-                            (
-                                jwt.sub,
-                                jwt.custom_fields.role,
-                            )
-                        });
+                        let user_details = auth
+                            .and_then(|token| {
+                                graphql::auth::parse_and_validate_jwt::<
+                                        graphql::auth::AuthJwtPayload,
+                                    >(
+                                        &token, &ctx.keypair.verifying_key()
+                                    )
+                                    .ok()
+                            })
+                            .map(|jwt| AuthenticatedUser {
+                                role: jwt.custom_fields.role,
+                                username: jwt.custom_fields.username,
+                                team_slug: jwt.custom_fields.team_slug,
+                                user_id: jwt.sub,
+                                team_id: jwt.custom_fields.team_id,
+                            });
 
                         let ctx = Context::new(
                             ctx.clone(),

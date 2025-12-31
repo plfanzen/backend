@@ -28,6 +28,9 @@ pub async fn create_session(
     ctx: &Context,
     uid: uuid::Uuid,
     role: UserRole,
+    username: String,
+    team_id: Option<uuid::Uuid>,
+    team_slug: Option<String>,
     key: &SigningKey,
 ) -> juniper::FieldResult<SessionCredentials> {
     let session_token = uuid::Uuid::now_v7().to_string();
@@ -35,7 +38,12 @@ pub async fn create_session(
         &JwtPayload::new_with_duration(
             uid.clone(),
             vec!["plfanzen".to_string()],
-            AuthJwtPayload { role },
+            AuthJwtPayload {
+                role,
+                username,
+                team_id,
+                team_slug,
+            },
             Duration::from_mins(10),
         ),
         key,
@@ -83,18 +91,31 @@ pub async fn refresh_session(
     let refresh_token = crate::graphql::auth::parse_and_validate_jwt::<
         crate::graphql::auth::RefreshJwtPayload,
     >(&refresh_token, &ctx.get_signing_key().verifying_key())?;
-    let (current_session, user) = {
+    let (current_session, user, team) = {
         let mut con = ctx.get_db_conn().await;
         crate::db::schema::sessions::table
             .filter(crate::db::schema::sessions::session_token.eq(&refresh_token.custom_fields.jti))
             .filter(crate::db::schema::sessions::id.eq(refresh_token.custom_fields.session_id))
             .filter(crate::db::schema::sessions::expires_at.gt(chrono::Utc::now()))
             .filter(crate::db::schema::sessions::user_id.eq(&refresh_token.sub))
-            // Select together with user
             .inner_join(crate::db::schema::users::table.on(
                 crate::db::schema::sessions::user_id.eq(crate::db::schema::users::id.nullable()),
             ))
-            .first::<(crate::db::models::Session, crate::db::models::User)>(&mut con)
+            .left_join(
+                crate::db::schema::teams::table
+                    .on(crate::db::schema::users::team_id
+                        .eq(crate::db::schema::teams::id.nullable())),
+            )
+            .select((
+                crate::db::models::Session::as_select(),
+                crate::db::models::User::as_select(),
+                Option::<crate::db::models::Team>::as_select(),
+            ))
+            .first::<(
+                crate::db::models::Session,
+                crate::db::models::User,
+                Option<crate::db::models::Team>,
+            )>(&mut con)
             .await?
     };
     let new_session_token = uuid::Uuid::now_v7();
@@ -102,7 +123,12 @@ pub async fn refresh_session(
         &JwtPayload::new_with_duration(
             refresh_token.sub.clone(),
             vec!["plfanzen".to_string()],
-            AuthJwtPayload { role: user.role },
+            AuthJwtPayload {
+                role: user.role,
+                username: user.username,
+                team_id: user.team_id,
+                team_slug: team.map(|t| t.name),
+            },
             Duration::from_mins(10),
         ),
         &ctx.get_signing_key(),

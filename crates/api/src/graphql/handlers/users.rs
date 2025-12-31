@@ -97,14 +97,19 @@ pub async fn login_user(
     password: String,
     context: &Context,
 ) -> juniper::FieldResult<SessionCredentials> {
-    let user = crate::db::schema::users::table
+    let user_and_team: Option<(User, Option<crate::db::models::Team>)>
+     = crate::db::schema::users::table
         .filter(crate::db::schema::users::username.eq(&username))
-        .select(User::as_select())
+        // Join on Team (team is optional)
+        .left_join(crate::db::schema::teams::table.on(
+            crate::db::schema::users::team_id.eq(crate::db::schema::teams::id.nullable()),
+        ))
+        .select((User::as_select(), Option::<crate::db::models::Team>::as_select()))
         .first(&mut context.get_db_conn().await)
         .await
         .optional()?;
-    match user {
-        Some(user) => {
+    match user_and_team {
+        Some((user, team)) => {
             let parsed_hash = argon2::PasswordHash::new(&user.password_hash)?;
             if Argon2::default()
                 .verify_password(password.as_bytes(), &parsed_hash)
@@ -115,6 +120,9 @@ pub async fn login_user(
                     context,
                     user.id,
                     user.role,
+                    user.username,
+                    user.team_id,
+                    team.map(|t| t.name),
                     &signing_key,
                 )
                 .await?;

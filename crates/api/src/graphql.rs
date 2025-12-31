@@ -26,8 +26,7 @@ pub struct Context {
     base: BaseContext,
     ip: IpAddr,
     user_agent: String,
-    user_id: Option<uuid::Uuid>,
-    role: Option<UserRole>,
+    user: Option<AuthenticatedUser>,
 }
 
 impl juniper::Context for Context {}
@@ -36,8 +35,18 @@ impl juniper::Context for Context {}
 pub struct AuthenticatedUser {
     pub user_id: uuid::Uuid,
     pub role: UserRole,
-    pub actor: String,
     pub team_id: Option<uuid::Uuid>,
+    pub username: String,
+    pub team_slug: Option<String>,
+}
+
+impl AuthenticatedUser {
+    pub fn actor(&self) -> String {
+        match &self.team_slug {
+            Some(slug) => format!("team-{slug}"),
+            None => format!("user-{}", self.username),
+        }
+    }
 }
 
 impl Context {
@@ -45,14 +54,13 @@ impl Context {
         base: BaseContext,
         ip: IpAddr,
         user_agent: String,
-        user_details: Option<(uuid::Uuid, UserRole)>,
+        user_details: Option<AuthenticatedUser>,
     ) -> Self {
         Self {
             base,
             ip,
             user_agent,
-            user_id: user_details.as_ref().map(|(uid, _)| uid.clone()),
-            role: user_details.map(|(_, role)| role),
+            user: user_details,
         }
     }
 
@@ -88,15 +96,15 @@ impl Context {
     }
 
     pub fn is_authenticated(&self) -> bool {
-        self.user_id.is_some()
+        self.user.is_some()
     }
 
     pub fn role(&self) -> Option<UserRole> {
-        self.role
+        self.user.as_ref().map(|u| u.role.clone())
     }
 
     pub fn require_role_exact(&self, required_role: UserRole) -> juniper::FieldResult<()> {
-        match &self.role {
+        match &self.role() {
             Some(user_role) if user_role == &required_role => Ok(()),
             _ => Err(juniper::FieldError::new(
                 "Insufficient permissions",
@@ -106,7 +114,7 @@ impl Context {
     }
 
     pub fn require_role_min(&self, required_role: UserRole) -> juniper::FieldResult<()> {
-        match &self.role {
+        match &self.role() {
             Some(user_role) if user_role >= &required_role => Ok(()),
             _ => Err(juniper::FieldError::new(
                 "Insufficient permissions",
@@ -116,13 +124,8 @@ impl Context {
     }
 
     pub fn require_authentication(&self) -> juniper::FieldResult<AuthenticatedUser> {
-        if let Some(uid) = self.user_id && let Some(role) = self.role {
-            Ok(AuthenticatedUser {
-                user_id: uid,
-                role,
-                actor: "todo".to_string(),
-                team_id: None,
-            })
+        if let Some(user) = &self.user {
+            Ok(user.clone())
         } else {
             Err(juniper::FieldError::new(
                 "Authentication required",

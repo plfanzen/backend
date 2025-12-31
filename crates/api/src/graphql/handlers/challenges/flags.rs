@@ -33,7 +33,7 @@ pub async fn submit_flag(
 
     let mut solved_challenge = challenges_client
         .check_flag(CheckFlagRequest {
-            actor: user.actor.clone(),
+            actor: user.actor(),
             challenge_id: Some(challenge_id.clone()),
             flag: flag.to_string(),
         })
@@ -47,7 +47,7 @@ pub async fn submit_flag(
     if solved_challenge.is_none() {
         solved_challenge = challenges_client
             .check_flag(CheckFlagRequest {
-                actor: user.actor.clone(),
+                actor: user.actor(),
                 challenge_id: None,
                 flag: flag.to_string(),
             })

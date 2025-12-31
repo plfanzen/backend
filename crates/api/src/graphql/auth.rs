@@ -6,6 +6,7 @@ use ed25519_dalek::{
 };
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use thiserror::Error;
+use uuid::Uuid;
 
 use crate::db::models::UserRole;
 
@@ -72,6 +73,9 @@ impl<Inner: DeserializeOwned> JwtPayload<Inner> {
 #[derive(Serialize, Deserialize)]
 pub struct AuthJwtPayload {
     pub role: UserRole,
+    pub username: String,
+    pub team_slug: Option<String>,
+    pub team_id: Option<Uuid>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -182,6 +186,9 @@ mod tests {
 
         let inner = AuthJwtPayload {
             role: UserRole::Player,
+            username: "testuser".to_string(),
+            team_slug: None,
+            team_id: None,
         };
 
         let jwt_payload = JwtPayload::new_with_duration(
@@ -210,6 +217,9 @@ mod tests {
         let another_verifying_key = VerifyingKey::from(&another_signing_key);
         let inner = AuthJwtPayload {
             role: UserRole::Player,
+            username: "testuser".to_string(),
+            team_slug: None,
+            team_id: None,
         };
         let jwt_payload = JwtPayload::new_with_duration(
             uuid::Uuid::now_v7(),
@@ -231,6 +241,9 @@ mod tests {
         let verifying_key = VerifyingKey::from(&signing_key);
         let inner = AuthJwtPayload {
             role: UserRole::Player,
+            username: "testuser".to_string(),
+            team_slug: None,
+            team_id: None,
         };
         let jwt_payload = JwtPayload::new_with_duration(
             uuid::Uuid::now_v7(),
