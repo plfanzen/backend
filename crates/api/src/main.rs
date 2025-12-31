@@ -44,7 +44,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
 
     let root_node: Arc<Schema> = Arc::new(RootNode::new(Query, Mutation, EmptySubscription::new()));
 
-    let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
+    let addr = SocketAddr::from(([0, 0, 0, 0, 0, 0, 0, 0], 3000));
     let listener = TcpListener::bind(addr).await?;
 
     let key_file = std::env::var("SIGNING_KEY_FILE").unwrap_or_else(|_| "key.json".to_string());
