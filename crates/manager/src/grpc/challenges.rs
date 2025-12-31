@@ -33,7 +33,7 @@ fn get_connection_details(
         for exposed_port in &svc.external_ports {
             connection_info.push(ConnectionInfo {
                 host: format!(
-                    "{}-{}-{}-instance-{}.{}",
+                    "{}-{}-challenge-{}-instance-{}.{}",
                     svc_id,
                     exposed_port.port,
                     challenge_id,
