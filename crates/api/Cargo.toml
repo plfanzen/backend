@@ -17,7 +17,7 @@ juniper = "0.17.0"
 juniper_hyper = "0.10.0"
 hyper = { version = "1.8.1", features = ["server", "http1", "http2"] }
 tracing = "0.1.43"
-diesel = { version = "2.3.4", features = ["chrono", "ipnet-address", "uuid", "without-deprecated"], default-features = false }
+diesel = { version = "2.3.4", features = ["chrono", "ipnet-address", "postgres", "uuid", "without-deprecated"], default-features = false }
 hyper-util = { version = "0.1.19", features = ["tracing", "server", "http1", "http2", "tokio"] }
 argon2 = "0.5.3"
 diesel-derive-enum = { version = "2.1.0", features = ["postgres"] }
@@ -34,6 +34,7 @@ thiserror = "2.0.17"
 secrets = "1.2.0"
 ipnet = "2.11.0"
 diesel-async = { version = "0.7.4", features = ["migrations", "tokio", "postgres", "pool", "bb8"] }
+diesel_migrations = { version = "2.3.1", features = ["postgres"] }
 
 [build-dependencies]
 tonic-prost-build = "0.14"

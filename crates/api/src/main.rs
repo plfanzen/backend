@@ -4,6 +4,7 @@
 
 use std::{convert::Infallible, error::Error, net::SocketAddr, sync::Arc};
 
+use diesel::Connection;
 use diesel_async::pooled_connection::AsyncDieselConnectionManager;
 use ed25519_dalek::SigningKey;
 use hyper::{Method, Response, StatusCode, service::service_fn};
@@ -59,6 +60,12 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     let keypair_json = std::fs::read_to_string(key_file)?;
     let signing_key: SigningKey = serde_json::from_str(&keypair_json)?;
 
+    let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+    {
+        let mut pg_connection = diesel::pg::PgConnection::establish(&database_url)
+            .expect("Failed to connect to database for migrations");
+        db::run_migrations(&mut pg_connection).expect("Failed to run database migrations");
+    }
     let ctx = graphql::BaseContext {
         grpc_client: tonic::transport::Channel::from_shared(
             std::env::var("MANAGER_ENDPOINT").expect("No manager endpoint set"),
@@ -67,7 +74,6 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         .connect()
         .await?,
         db_pool: {
-            let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
             let manager =
                 AsyncDieselConnectionManager::<diesel_async::AsyncPgConnection>::new(database_url);
             diesel_async::pooled_connection::bb8::Pool::builder()
