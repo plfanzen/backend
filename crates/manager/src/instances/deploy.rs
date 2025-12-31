@@ -1,4 +1,4 @@
-use k8s_openapi::api::apps::v1::Deployment;
+use k8s_openapi::api::{apps::v1::Deployment, core::v1::PersistentVolumeClaim};
 use kube::{Api, Client};
 
 use crate::repo::challenges::manifest::ChallengeYml;
@@ -28,6 +28,8 @@ pub async fn deploy_challenge(
             (deployments, svcs, ingressroutes, ingressroutestcp)
         },
     );
+    
+    let pvcs = challenge.volumes.into_iter().map(|(vol_id, vol)| vol.get_pvc(vol_id)).collect::<Vec<_>>();
 
     let deployment_api: Api<Deployment> = Api::namespaced(kube_client.clone(), challenge_ns);
     for deployment in deployments {
@@ -54,6 +56,11 @@ pub async fn deploy_challenge(
         ingressroutetcp_api
             .create(&Default::default(), &ingressroutetcp)
             .await?;
+    }
+    let pvc_api: Api<PersistentVolumeClaim> =
+        Api::namespaced(ingressroutetcp_api.into_client(), challenge_ns);
+    for pvc in pvcs {
+        pvc_api.create(&Default::default(), &pvc).await?;
     }
 
     Ok(())
