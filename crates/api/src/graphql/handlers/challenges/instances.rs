@@ -4,7 +4,7 @@
 
 use juniper::{GraphQLEnum, GraphQLObject};
 
-use crate::{graphql::Context, manager_api::Protocol};
+use crate::{db::models::UserRole, graphql::Context, manager_api::Protocol};
 
 #[derive(Debug, Clone, PartialEq, Eq, GraphQLEnum)]
 pub enum ConnectionProtocol {
@@ -41,14 +41,13 @@ pub async fn launch_challenge_instance(
 ) -> juniper::FieldResult<bool> {
     let auth = context.require_authentication()?;
 
-    // TODO: Ensure challenge has been released
-
     let mut challenges_client = context.challenges_client();
 
     challenges_client
         .start_challenge_instance(crate::manager_api::StartChallengeInstanceRequest {
             challenge_id,
             actor: auth.actor.to_string(),
+            require_release: auth.role == UserRole::Player,
         })
         .await?;
 

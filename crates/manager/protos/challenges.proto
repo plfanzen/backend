@@ -28,8 +28,9 @@ message ListChallengesResponse {
 }
 
 message StartChallengeInstanceRequest {
-  string challenge_id = 1;
-  string actor        = 2;
+  string challenge_id    = 1;
+  string actor           = 2;
+  bool   require_release = 3;
 }
 
 message GetChallengeInstanceStatusRequest {

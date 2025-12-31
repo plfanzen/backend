@@ -128,6 +128,28 @@ impl ChallengesService for ChallengeManager {
                 "challenge_id contains invalid characters",
             ));
         }
+        let challenge =
+            load_challenge_from_repo(&self.repo_dir, &request.challenge_id, &request.actor)
+                .await
+                .map_err(|e| {
+                    tonic::Status::internal(format!(
+                        "Failed to load challenge {} from repo: {}",
+                        request.challenge_id, e
+                    ))
+                })?;
+                
+        if request.require_release {
+            let now = chrono::Utc::now().timestamp() as u64;
+            if let Some(release_time) = challenge.metadata.release_time {
+                if now < release_time {
+                    return Err(tonic::Status::failed_precondition(format!(
+                        "Challenge {} has not been released yet",
+                        request.challenge_id
+                    )));
+                }
+            }
+        }
+
         let instance_id = crate::instances::prepare_instance(
             &self.kube_client,
             &request.challenge_id,
@@ -140,16 +162,6 @@ impl ChallengesService for ChallengeManager {
                 request.challenge_id, e
             ))
         })?;
-        let challenge =
-            load_challenge_from_repo(&self.repo_dir, &request.challenge_id, &request.actor)
-                .await
-                .map_err(|e| {
-                    tonic::Status::internal(format!(
-                        "Failed to load challenge {} from repo: {}",
-                        request.challenge_id, e
-                    ))
-                })?;
-
         let connection_info = get_connection_details(
             &challenge,
             &request.challenge_id,
