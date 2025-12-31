@@ -88,7 +88,7 @@ pub async fn get_instances(
             };
             let name = name
                 .strip_prefix(
-                    format!("challenge-{}-actor-{}-instance-", challenge_id, actor_id).as_str(),
+                    format!("challenge-{}-instance-", challenge_id).as_str(),
                 )
                 .unwrap_or(&name)
                 .to_string();
