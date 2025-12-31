@@ -38,4 +38,18 @@ impl Query {
     ) -> juniper::FieldResult<Vec<crate::db::models::User>> {
         crate::graphql::handlers::users::get_all_users(context).await
     }
+    
+    async fn me(
+        context: &Context,
+    ) -> juniper::FieldResult<Option<crate::db::models::User>> {
+        crate::graphql::handlers::users::get_current_user(context).await
+    }
+    
+    async fn user_by_id(
+        context: &Context,
+        user_id: String,
+    ) -> juniper::FieldResult<Option<crate::db::models::User>> {
+        let user_id = uuid::Uuid::parse_str(&user_id)?;
+        crate::graphql::handlers::users::get_user_by_id(user_id, context).await
+    }
 }

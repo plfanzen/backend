@@ -152,3 +152,30 @@ pub async fn get_all_users(
         .await?;
     Ok(all_users)
 }
+
+pub async fn get_current_user(
+    context: &Context,
+) -> juniper::FieldResult<Option<User>> {
+    if let Some(auth_user) = &context.user {
+        let user_record = crate::db::schema::users::table
+            .filter(crate::db::schema::users::id.eq(auth_user.user_id))
+            .first::<User>(&mut context.get_db_conn().await)
+            .await?;
+        Ok(Some(user_record))
+    } else {
+        Ok(None)
+    }
+}
+
+pub async fn get_user_by_id(
+    user_id_val: uuid::Uuid,
+    context: &Context,
+) -> juniper::FieldResult<Option<User>> {
+    context.require_authentication()?;
+    let user_record = crate::db::schema::users::table
+        .filter(crate::db::schema::users::id.eq(user_id_val))
+        .first::<User>(&mut context.get_db_conn().await)
+        .await
+        .optional()?;
+    Ok(user_record)
+}
