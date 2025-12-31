@@ -5,6 +5,7 @@
 use chrono::{DateTime, Utc};
 use diesel::associations::Identifiable;
 use diesel::prelude::*;
+use juniper::GraphQLEnum;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -21,6 +22,7 @@ use super::schema::*;
     Copy,
     Ord,
     PartialOrd,
+    GraphQLEnum,
 )]
 #[DbValueStyle = "UPPERCASE"]
 #[ExistingTypePath = "crate::db::schema::sql_types::UserRole"]
@@ -125,7 +127,7 @@ pub struct NewTeam {
 #[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct Solve {
     pub id: Uuid,
-    pub user_id: Option<Uuid>,
+    pub user_id: Uuid,
     pub challenge_id: String,
     pub solved_at: DateTime<Utc>,
     pub submitted_flag: String,
@@ -150,7 +152,7 @@ pub struct NewSolve {
 #[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct InvalidSubmission {
     pub id: Uuid,
-    pub user_id: Option<Uuid>,
+    pub user_id: Uuid,
     pub challenge_id: String,
     pub submitted_flag: String,
     pub submitted_at: DateTime<Utc>,

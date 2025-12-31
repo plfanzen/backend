@@ -4,6 +4,8 @@
 
 pub mod flags;
 pub mod instances;
+pub mod solves;
+pub mod invalid_submissions;
 
 use std::collections::HashMap;
 

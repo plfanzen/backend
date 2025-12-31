@@ -32,4 +32,10 @@ impl Query {
     ) -> juniper::FieldResult<Vec<crate::graphql::handlers::challenges::CtfChallengeMetadata>> {
         crate::graphql::handlers::challenges::get_challenges(context).await
     }
+    
+    async fn users(
+        context: &Context,
+    ) -> juniper::FieldResult<Vec<crate::db::models::User>> {
+        crate::graphql::handlers::users::get_all_users(context).await
+    }
 }

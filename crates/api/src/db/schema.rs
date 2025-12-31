@@ -9,7 +9,7 @@ pub mod sql_types {
 diesel::table! {
     invalid_submissions (id) {
         id -> Uuid,
-        user_id -> Nullable<Uuid>,
+        user_id -> Uuid,
         challenge_id -> Varchar,
         submitted_flag -> Varchar,
         submitted_at -> Timestamptz,
@@ -31,7 +31,7 @@ diesel::table! {
 diesel::table! {
     solves (id) {
         id -> Uuid,
-        user_id -> Nullable<Uuid>,
+        user_id -> Uuid,
         challenge_id -> Varchar,
         solved_at -> Timestamptz,
         submitted_flag -> Varchar,

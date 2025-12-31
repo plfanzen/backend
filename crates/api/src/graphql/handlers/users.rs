@@ -21,6 +21,8 @@ use diesel_async::RunQueryDsl;
 use juniper::FieldResult;
 use rand_core::OsRng;
 
+pub mod details;
+
 pub async fn create_user(
     username: String,
     email: String,
@@ -139,4 +141,14 @@ pub async fn login_user(
             juniper::Value::null(),
         )),
     }
+}
+
+pub async fn get_all_users(
+    context: &Context,
+) -> juniper::FieldResult<Vec<User>> {
+    context.require_role_min(crate::db::models::UserRole::Admin)?;
+    let all_users = crate::db::schema::users::table
+        .load::<User>(&mut context.get_db_conn().await)
+        .await?;
+    Ok(all_users)
 }
