@@ -59,7 +59,7 @@ pub async fn submit_flag(
             });
     }
 
-    if solved_challenge.is_some() {
+    if let Some(challenge_id) = solved_challenge {
         let new_submission = NewSolve {
             user_id: user.user_id,
             challenge_id,
