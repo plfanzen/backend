@@ -28,8 +28,7 @@ pub struct ChallengeService {
     pub tmp_dirs: HashMap<String, String>,
     #[serde(default)]
     pub read_only: bool,
-    #[serde(default)]
-    pub internal_ports: HashMap<u16, u16>,
+    pub internal_ports: Option<HashMap<u16, u16>>,
     #[serde(default)]
     pub external_ports: Vec<ExposedPort>,
 }
@@ -125,7 +124,7 @@ impl ChallengeService {
     }
 
     pub fn get_internal_svc(&self, id: String) -> Option<k8s_openapi::api::core::v1::Service> {
-        if self.internal_ports.is_empty() {
+        if self.internal_ports.as_ref().is_some_and(|p| p.is_empty()) {
             return None;
         }
         Some(k8s_openapi::api::core::v1::Service {
@@ -140,8 +139,13 @@ impl ChallengeService {
                         .cloned()
                         .collect(),
                 ),
-                ports: Some(
-                    self.internal_ports
+                cluster_ip: if self.internal_ports.is_none() {
+                    Some("None".to_string())
+                } else {
+                    None
+                },
+                ports: self.internal_ports.as_ref().map(|ports| {
+                    ports
                         .iter()
                         .map(
                             |(internal, external)| k8s_openapi::api::core::v1::ServicePort {
@@ -154,8 +158,9 @@ impl ChallengeService {
                                 ..Default::default()
                             },
                         )
-                        .collect(),
-                ),
+                        .collect()
+                }),
+
                 ..Default::default()
             }),
             status: None,
