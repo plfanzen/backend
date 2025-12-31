@@ -19,14 +19,13 @@ pub enum InstanceState {
 pub async fn is_instance_running(
     kube_client: &Client,
     challenge_id: &str,
-    actor_id: &str,
     instance_id: &str,
 ) -> bool {
     let api: Api<Pod> = Api::namespaced(
         kube_client.clone(),
         format!(
-            "challenge-{}-actor-{}-instance-{}",
-            challenge_id, actor_id, instance_id
+            "challenge-{}-instance-{}",
+            challenge_id, instance_id
         )
         .as_str(),
     );
@@ -74,10 +73,9 @@ pub async fn get_instances(
             } else if is_instance_running(
                 kube_client,
                 challenge_id,
-                actor_id,
                 &name
                     .strip_prefix(
-                        format!("challenge-{}-actor-{}-instance-", challenge_id, actor_id).as_str(),
+                        format!("challenge-{}-instance-", challenge_id).as_str(),
                     )
                     .unwrap_or(&name)
                     .to_string(),
@@ -120,12 +118,12 @@ pub async fn prepare_instance(
     }
     // This will never cause an infinite loop because we check the number of existing instances above
     loop {
-        let instance_suffix: String = (0..4)
+        let instance_suffix: String = (0..12)
             .map(|_| format!("{:x}", rand::rng().random_range(0..16)))
             .collect();
         let instance_name = format!(
-            "challenge-{}-actor-{}-instance-{}",
-            challenge_id, actor_id, instance_suffix
+            "challenge-{}-instance-{}",
+            challenge_id, instance_suffix
         );
         if api.get_opt(&instance_name).await?.is_some() {
             continue;
@@ -158,11 +156,11 @@ pub async fn delete_instance(
     instance_id: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let api: Api<Namespace> = Api::all(kube_client.clone());
-    let instance_name = format!(
-        "challenge-{}-actor-{}-instance-{}",
-        challenge_id, actor_id, instance_id
+    let instance_ns = format!(
+        "challenge-{}-instance-{}",
+        challenge_id, instance_id
     );
-    api.delete(&instance_name, &kube::api::DeleteParams::default())
+    api.delete(&instance_ns, &kube::api::DeleteParams::default())
         .await?;
     Ok(())
 }

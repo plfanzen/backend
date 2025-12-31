@@ -33,11 +33,10 @@ fn get_connection_details(
         for exposed_port in &svc.external_ports {
             connection_info.push(ConnectionInfo {
                 host: format!(
-                    "{}-{}-challenge-{}-actor-{}-instance-{}.{}",
+                    "{}-{}-{}-{}.{}",
                     svc_id,
                     exposed_port.port,
                     challenge_id,
-                    actor,
                     instance_id,
                     std::env::var("EXPOSED_DOMAIN").unwrap_or("localhost".to_string())
                 ),
