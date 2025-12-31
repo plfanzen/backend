@@ -168,7 +168,16 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
                         async {
                             Ok::<_, Infallible>(match (req.method(), req.uri().path()) {
                                 (&Method::GET, "/graphql") | (&Method::POST, "/graphql") => {
-                                    graphql(root_node, Arc::new(ctx), req).await
+                                    tokio::time::timeout(
+                                        std::time::Duration::from_secs(30),
+                                        graphql(root_node, Arc::new(ctx), req),
+                                    )
+                                    .await
+                                    .unwrap_or_else(|_| {
+                                        let mut resp = Response::new(String::new());
+                                        *resp.status_mut() = StatusCode::GATEWAY_TIMEOUT;
+                                        resp
+                                    })
                                 }
                                 (&Method::OPTIONS, "/graphql") => {
                                     let mut resp = Response::new(String::new());
