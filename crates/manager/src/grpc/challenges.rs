@@ -137,6 +137,13 @@ impl ChallengesService for ChallengeManager {
                         request.challenge_id, e
                     ))
                 })?;
+        
+        if challenge.services.is_empty() {
+            return Err(tonic::Status::failed_precondition(format!(
+                "Challenge {} has no services to start",
+                request.challenge_id
+            )));
+        }
                 
         if request.require_release {
             let now = chrono::Utc::now().timestamp() as u64;

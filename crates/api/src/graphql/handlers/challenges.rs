@@ -30,6 +30,8 @@ pub struct CtfChallengeMetadata {
     pub release_time: Option<i32>,
     pub end_time: Option<i32>,
     pub points: i32,
+    /// Whether the user can start an instance of this challenge
+    pub can_start: bool,
 }
 
 pub async fn get_challenges(context: &Context) -> juniper::FieldResult<Vec<CtfChallengeMetadata>> {
@@ -64,6 +66,7 @@ pub async fn get_challenges(context: &Context) -> juniper::FieldResult<Vec<CtfCh
             release_time: c.release_timestamp.map(|t| t as i32),
             end_time: c.end_timestamp.map(|t| t as i32),
             points: c.points as i32,
+            can_start: c.can_start,
         })
         .collect();
     Ok(result)
@@ -100,6 +103,10 @@ impl CtfChallengeMetadata {
     }
     fn points(&self) -> i32 {
         self.points
+    }
+    
+    fn can_start(&self) -> bool {
+        self.can_start
     }
 
     async fn instance(
