@@ -33,3 +33,14 @@ impl Solve {
         Ok(user_record)
     }
 }
+
+pub async fn get_solves(
+    ctx: &crate::graphql::Context,
+) -> juniper::FieldResult<Vec<Solve>> {
+    ctx.require_role_min(UserRole::Author)?;
+    use crate::db::schema::solves::dsl::*;
+    let solve_records = solves
+        .load::<Solve>(&mut ctx.get_db_conn().await)
+        .await?;
+    Ok(solve_records)
+}
