@@ -8,7 +8,12 @@ use juniper::EmptySubscription;
 pub use mutation::Mutation;
 pub use query::Query;
 
-use crate::db::models::UserRole;
+use crate::{db::models::UserRole, graphql::handlers::challenges::CtfChallengeMetadata};
+
+use diesel::prelude::*;
+use diesel_async::RunQueryDsl;
+
+use std::time::Duration;
 
 pub mod auth;
 mod handlers;
@@ -27,6 +32,9 @@ pub struct Context {
     ip: IpAddr,
     user_agent: String,
     user: Option<AuthenticatedUser>,
+    challenges_cache:
+        moka::future::Cache<String, Result<Vec<CtfChallengeMetadata>, juniper::FieldError>>,
+    total_competitors: i32,
 }
 
 impl juniper::Context for Context {}
@@ -49,19 +57,38 @@ impl AuthenticatedUser {
     }
 }
 
+#[cached::proc_macro::cached(time = 300, key = "()", convert = "{ }", result = true)]
+async fn get_total_competitors(context: &Context) -> juniper::FieldResult<i32> {
+    // This chould be optimized, but for now this is fine
+    let conn = &mut context.get_db_conn().await;
+    use crate::db::schema::teams::dsl::*;
+    let team_count: i64 = teams.count().get_result(conn).await?;
+    use crate::db::schema::users::dsl::*;
+    let user_count: i64 = users.count().get_result(conn).await?;
+    if team_count == 0 {
+        Ok(user_count as i32)
+    } else {
+        Ok(team_count as i32)
+    }
+}
+
 impl Context {
-    pub fn new(
+    pub async fn new(
         base: BaseContext,
         ip: IpAddr,
         user_agent: String,
         user_details: Option<AuthenticatedUser>,
     ) -> Self {
-        Self {
+        let mut tmp = Self {
             base,
             ip,
             user_agent,
             user: user_details,
-        }
+            challenges_cache: moka::future::Cache::builder().build(),
+            total_competitors: 0,
+        };
+        tmp.total_competitors = get_total_competitors(&tmp).await.unwrap_or(0);
+        tmp
     }
 
     async fn get_db_conn(

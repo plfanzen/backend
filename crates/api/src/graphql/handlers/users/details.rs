@@ -83,4 +83,12 @@ impl User {
             .await?;
         Ok(records)
     }
+    
+    pub fn actor(&self) -> String {
+        if self.team_id.is_some() {
+            format!("team-{}", self.team_id.unwrap())
+        } else {
+            format!("user-{}", self.id)
+        }
+    }
 }

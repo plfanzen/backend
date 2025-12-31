@@ -35,6 +35,9 @@ secrets = "1.2.0"
 ipnet = "2.11.0"
 diesel-async = { version = "0.7.4", features = ["migrations", "tokio", "postgres", "pool", "bb8"] }
 diesel_migrations = { version = "2.3.1", features = ["postgres"] }
+dashmap = "6.1.0"
+moka = { version = "0.12.12", features = ["future"] }
+cached = { version = "0.56.0", features = ["async"] }
 
 [build-dependencies]
 tonic-prost-build = "0.14"

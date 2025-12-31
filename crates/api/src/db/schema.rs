@@ -63,6 +63,8 @@ diesel::table! {
         created_at -> Timestamptz,
         updated_at -> Timestamptz,
         join_code -> Nullable<Varchar>,
+        #[max_length = 255]
+        slug -> Varchar,
     }
 }
 

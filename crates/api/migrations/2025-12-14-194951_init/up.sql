@@ -30,7 +30,7 @@ CREATE INDEX idx_users_team_id ON users(team_id);
 
 CREATE TABLE solves (
     id UUID PRIMARY KEY DEFAULT uuidv7(),
-    user_id UUID REFERENCES users(id) ON DELETE CASCADE  NOT NULL,
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE NOT NULL,
     challenge_id VARCHAR NOT NULL,
     solved_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     -- In case a challenge author messes up the flag verification,

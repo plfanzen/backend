@@ -1,0 +1,4 @@
+ALTER TABLE teams
+ADD COLUMN slug VARCHAR(255) NOT NULL UNIQUE;
+ALTER TABLE teams
+ADD CONSTRAINT slug_format CHECK (slug ~ '^[a-zA-Z0-9_-]+$');

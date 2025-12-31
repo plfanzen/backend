@@ -154,18 +154,19 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
                                 team_id: jwt.custom_fields.team_id,
                             });
 
-                        let ctx = Context::new(
-                            ctx.clone(),
-                            remote_ip,
-                            req.headers()
-                                .get("user-agent")
-                                .and_then(|ua| ua.to_str().ok())
-                                .unwrap_or("unknown")
-                                .to_string(),
-                            user_details,
-                        );
-
-                        async {
+                        let ctx = ctx.clone();
+                        async move {
+                            let ctx = Context::new(
+                                ctx,
+                                remote_ip,
+                                req.headers()
+                                    .get("user-agent")
+                                    .and_then(|ua| ua.to_str().ok())
+                                    .unwrap_or("unknown")
+                                    .to_string(),
+                                user_details,
+                            )
+                            .await;
                             Ok::<_, Infallible>(match (req.method(), req.uri().path()) {
                                 (&Method::GET, "/graphql") | (&Method::POST, "/graphql") => {
                                     tokio::time::timeout(
