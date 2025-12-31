@@ -160,6 +160,10 @@ pub async fn delete_instance(
         "challenge-{}-instance-{}",
         challenge_id, instance_id
     );
+    let ns = api.get(&instance_ns).await?;
+    if ns.metadata.labels.as_ref().and_then(|l| l.get("actor_id")) != Some(&actor_id.to_string()) {
+        return Err("Instance does not belong to actor".into());
+    }
     api.delete(&instance_ns, &kube::api::DeleteParams::default())
         .await?;
     Ok(())
