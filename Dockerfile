@@ -20,6 +20,8 @@ CMD ["plfanzen-manager"]
 
 FROM debian:trixie-slim AS api
 
+RUN apt-get update && apt-get install -y libpq5 && rm -rf /var/lib/apt/lists/*
+
 COPY --from=builder /plfanzen/target/release/plfanzen-api /usr/local/bin/plfanzen-api
 
 EXPOSE 3000
