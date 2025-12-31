@@ -22,14 +22,20 @@ pub async fn deploy_challenge(
             if let Some(ir) = svc.get_ingress_route(svc_id.clone(), challenge_ns, exposed_domain) {
                 ingressroutes.push(ir);
             }
-            if let Some(irtcp) = svc.get_ingress_route_tcp(svc_id.clone(), challenge_ns, exposed_domain) {
+            if let Some(irtcp) =
+                svc.get_ingress_route_tcp(svc_id.clone(), challenge_ns, exposed_domain)
+            {
                 ingressroutestcp.push(irtcp);
             }
             (deployments, svcs, ingressroutes, ingressroutestcp)
         },
     );
-    
-    let pvcs = challenge.volumes.into_iter().map(|(vol_id, vol)| vol.get_pvc(vol_id)).collect::<Vec<_>>();
+
+    let pvcs = challenge
+        .volumes
+        .into_iter()
+        .map(|(vol_id, vol)| vol.get_pvc(vol_id))
+        .collect::<Vec<_>>();
 
     let deployment_api: Api<Deployment> = Api::namespaced(kube_client.clone(), challenge_ns);
     for deployment in deployments {

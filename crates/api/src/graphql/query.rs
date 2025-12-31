@@ -32,19 +32,15 @@ impl Query {
     ) -> juniper::FieldResult<Vec<crate::graphql::handlers::challenges::CtfChallengeMetadata>> {
         crate::graphql::handlers::challenges::get_challenges(context).await
     }
-    
-    async fn users(
-        context: &Context,
-    ) -> juniper::FieldResult<Vec<crate::db::models::User>> {
+
+    async fn users(context: &Context) -> juniper::FieldResult<Vec<crate::db::models::User>> {
         crate::graphql::handlers::users::get_all_users(context).await
     }
-    
-    async fn me(
-        context: &Context,
-    ) -> juniper::FieldResult<Option<crate::db::models::User>> {
+
+    async fn me(context: &Context) -> juniper::FieldResult<Option<crate::db::models::User>> {
         crate::graphql::handlers::users::get_current_user(context).await
     }
-    
+
     async fn user_by_id(
         context: &Context,
         user_id: String,
@@ -52,10 +48,8 @@ impl Query {
         let user_id = uuid::Uuid::parse_str(&user_id)?;
         crate::graphql::handlers::users::get_user_by_id(user_id, context).await
     }
-    
-    async fn solves(
-        context: &Context,
-    ) -> juniper::FieldResult<Vec<crate::db::models::Solve>> {
+
+    async fn solves(context: &Context) -> juniper::FieldResult<Vec<crate::db::models::Solve>> {
         crate::graphql::handlers::challenges::solves::get_solves(context).await
     }
 }

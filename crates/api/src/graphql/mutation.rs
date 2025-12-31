@@ -53,14 +53,11 @@ impl Mutation {
     ) -> FieldResult<bool> {
         handlers::challenges::instances::launch_challenge_instance(context, challenge_id).await
     }
-    
-    async fn stop_challenge_instance(
-        context: &Context,
-        challenge_id: String,
-    ) -> FieldResult<bool> {
+
+    async fn stop_challenge_instance(context: &Context, challenge_id: String) -> FieldResult<bool> {
         handlers::challenges::instances::stop_challenge_instance(context, challenge_id).await
     }
-    
+
     /// Returns the ID of the solved challenge if the flag is correct, or null otherwise.
     async fn submit_flag(
         context: &Context,

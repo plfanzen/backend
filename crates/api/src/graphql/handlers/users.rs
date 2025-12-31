@@ -99,17 +99,22 @@ pub async fn login_user(
     password: String,
     context: &Context,
 ) -> juniper::FieldResult<SessionCredentials> {
-    let user_and_team: Option<(User, Option<crate::db::models::Team>)>
-     = crate::db::schema::users::table
-        .filter(crate::db::schema::users::username.eq(&username))
-        // Join on Team (team is optional)
-        .left_join(crate::db::schema::teams::table.on(
-            crate::db::schema::users::team_id.eq(crate::db::schema::teams::id.nullable()),
-        ))
-        .select((User::as_select(), Option::<crate::db::models::Team>::as_select()))
-        .first(&mut context.get_db_conn().await)
-        .await
-        .optional()?;
+    let user_and_team: Option<(User, Option<crate::db::models::Team>)> =
+        crate::db::schema::users::table
+            .filter(crate::db::schema::users::username.eq(&username))
+            // Join on Team (team is optional)
+            .left_join(
+                crate::db::schema::teams::table
+                    .on(crate::db::schema::users::team_id
+                        .eq(crate::db::schema::teams::id.nullable())),
+            )
+            .select((
+                User::as_select(),
+                Option::<crate::db::models::Team>::as_select(),
+            ))
+            .first(&mut context.get_db_conn().await)
+            .await
+            .optional()?;
     match user_and_team {
         Some((user, team)) => {
             let parsed_hash = argon2::PasswordHash::new(&user.password_hash)?;
@@ -143,9 +148,7 @@ pub async fn login_user(
     }
 }
 
-pub async fn get_all_users(
-    context: &Context,
-) -> juniper::FieldResult<Vec<User>> {
+pub async fn get_all_users(context: &Context) -> juniper::FieldResult<Vec<User>> {
     context.require_role_min(crate::db::models::UserRole::Admin)?;
     let all_users = crate::db::schema::users::table
         .load::<User>(&mut context.get_db_conn().await)
@@ -153,9 +156,7 @@ pub async fn get_all_users(
     Ok(all_users)
 }
 
-pub async fn get_current_user(
-    context: &Context,
-) -> juniper::FieldResult<Option<User>> {
+pub async fn get_current_user(context: &Context) -> juniper::FieldResult<Option<User>> {
     if let Some(auth_user) = &context.user {
         let user_record = crate::db::schema::users::table
             .filter(crate::db::schema::users::id.eq(auth_user.user_id))

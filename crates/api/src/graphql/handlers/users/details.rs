@@ -38,7 +38,7 @@ impl User {
     pub fn role(&self) -> UserRole {
         self.role
     }
-    
+
     pub async fn invalid_submissions_count(&self, ctx: &Context) -> FieldResult<i32> {
         ctx.require_role_min(UserRole::Author)?;
         use crate::db::schema::invalid_submissions::dsl::*;
@@ -49,7 +49,7 @@ impl User {
             .await?;
         Ok(count as i32)
     }
-    
+
     pub async fn solves_count(&self, ctx: &Context) -> FieldResult<i32> {
         use crate::db::schema::solves::dsl::*;
         let count: i64 = solves
@@ -59,9 +59,16 @@ impl User {
             .await?;
         Ok(count as i32)
     }
-    
-    pub async fn invalid_submissions(&self, ctx: &Context) -> FieldResult<Vec<crate::db::models::InvalidSubmission>> {
-        if !ctx.user.as_ref().is_some_and(|u| u.user_id == self.id || u.role == UserRole::Admin) {
+
+    pub async fn invalid_submissions(
+        &self,
+        ctx: &Context,
+    ) -> FieldResult<Vec<crate::db::models::InvalidSubmission>> {
+        if !ctx
+            .user
+            .as_ref()
+            .is_some_and(|u| u.user_id == self.id || u.role == UserRole::Admin)
+        {
             return Err(juniper::FieldError::new(
                 "Permission denied to view invalid submissions",
                 juniper::Value::null(),
@@ -74,7 +81,7 @@ impl User {
             .await?;
         Ok(records)
     }
-    
+
     pub async fn solves(&self, ctx: &Context) -> FieldResult<Vec<crate::db::models::Solve>> {
         use crate::db::schema::solves::dsl::*;
         let records = solves
@@ -83,7 +90,7 @@ impl User {
             .await?;
         Ok(records)
     }
-    
+
     pub fn actor(&self) -> String {
         if self.team_id.is_some() {
             format!("team-{}", self.team_id.unwrap())

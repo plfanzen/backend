@@ -16,15 +16,15 @@ impl InvalidSubmission {
     pub fn challenge_id(&self) -> &str {
         &self.challenge_id
     }
-    
+
     pub fn submitted_flag(&self) -> &str {
         &self.submitted_flag
     }
-    
+
     pub fn submitted_at(&self) -> String {
         self.submitted_at.to_rfc3339()
     }
-    
+
     pub async fn user(&self, ctx: &crate::graphql::Context) -> juniper::FieldResult<User> {
         use crate::db::schema::users::dsl::*;
         let user_record = users

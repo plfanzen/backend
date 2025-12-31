@@ -4,7 +4,10 @@
 
 use std::sync::{Arc, Mutex};
 
-use boa_engine::{JsError, JsNativeError, JsValue, NativeFunction, Source, js_string, js_value, object::builtins::JsFunction, value::TryIntoJs};
+use boa_engine::{
+    JsError, JsNativeError, JsValue, NativeFunction, Source, js_string, js_value,
+    object::builtins::JsFunction, value::TryIntoJs,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::js::create_boa_context;
@@ -54,25 +57,29 @@ impl CtfChallengeMetadata {
             let flag_fn: Arc<Mutex<Option<JsFunction>>> = Arc::new(Mutex::new(None));
             let flag_fn_clone = flag_fn.clone();
             engine
-                .register_global_builtin_callable(js_string!("setFlagValidationFunction"), 1, unsafe {
-                    NativeFunction::from_closure(move |_this, args, _ctx| {
-                        let fn_obj = args.get(0).and_then(|v| v.as_object());
-                        if let Some(obj) = fn_obj {
-                            let Some(func) = JsFunction::from_object(obj) else {
+                .register_global_builtin_callable(
+                    js_string!("setFlagValidationFunction"),
+                    1,
+                    unsafe {
+                        NativeFunction::from_closure(move |_this, args, _ctx| {
+                            let fn_obj = args.get(0).and_then(|v| v.as_object());
+                            if let Some(obj) = fn_obj {
+                                let Some(func) = JsFunction::from_object(obj) else {
+                                    return Err(JsError::from(JsNativeError::typ().with_message(
+                                        "setPointsFn expects a function as its first argument",
+                                    )));
+                                };
+                                let mut lock = flag_fn_clone.lock().unwrap();
+                                *lock = Some(func);
+                            } else {
                                 return Err(JsError::from(JsNativeError::typ().with_message(
                                     "setPointsFn expects a function as its first argument",
                                 )));
-                            };
-                            let mut lock = flag_fn_clone.lock().unwrap();
-                            *lock = Some(func);
-                        } else {
-                            return Err(JsError::from(JsNativeError::typ().with_message(
-                                "setPointsFn expects a function as its first argument",
-                            )));
-                        }
-                        Ok(JsValue::undefined())
-                    })
-                })
+                            }
+                            Ok(JsValue::undefined())
+                        })
+                    },
+                )
                 .expect("Failed to register setFlagValidationFunction");
             engine.eval(Source::from_bytes(&validation_fn))?;
             let flag_validation_function = {
@@ -81,9 +88,7 @@ impl CtfChallengeMetadata {
             };
             let result = flag_validation_function.call(
                 &JsValue::undefined(),
-                &[
-                    js_value!(js_string!(flag)),
-                ],
+                &[js_value!(js_string!(flag))],
                 &mut engine,
             )?;
             let success = result
@@ -95,5 +100,5 @@ impl CtfChallengeMetadata {
         } else {
             Err("No flag validation method available".into())
         }
-    } 
+    }
 }

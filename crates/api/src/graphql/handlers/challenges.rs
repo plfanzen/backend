@@ -89,7 +89,13 @@ pub async fn get_challenges_for_actor(
     context
         .challenges_cache
         .get_with(actor.clone(), async {
-            get_challenges_for_actor_internal(challenges_client, current_role, actor, total_competitors).await
+            get_challenges_for_actor_internal(
+                challenges_client,
+                current_role,
+                actor,
+                total_competitors,
+            )
+            .await
         })
         .await
 }
