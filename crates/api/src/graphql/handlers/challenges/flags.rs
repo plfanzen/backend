@@ -59,10 +59,10 @@ pub async fn submit_flag(
             });
     }
 
-    if let Some(challenge_id) = solved_challenge {
+    if let Some(challenge_id) = &solved_challenge {
         let new_submission = NewSolve {
             user_id: user.user_id,
-            challenge_id,
+            challenge_id: challenge_id.clone(),
             submitted_flag: flag,
             solved_at: ts_now,
         };
