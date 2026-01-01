@@ -52,4 +52,8 @@ impl Query {
     async fn solves(context: &Context) -> juniper::FieldResult<Vec<crate::db::models::Solve>> {
         crate::graphql::handlers::challenges::solves::get_solves(context).await
     }
+    
+    async fn teams(context: &Context) -> juniper::FieldResult<Vec<crate::db::models::Team>> {
+        crate::graphql::handlers::teams::get_teams(context).await
+    }
 }

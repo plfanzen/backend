@@ -149,7 +149,6 @@ pub async fn login_user(
 }
 
 pub async fn get_all_users(context: &Context) -> juniper::FieldResult<Vec<User>> {
-    context.require_role_min(crate::db::models::UserRole::Admin)?;
     let all_users = crate::db::schema::users::table
         .load::<User>(&mut context.get_db_conn().await)
         .await?;

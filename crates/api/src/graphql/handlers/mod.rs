@@ -6,4 +6,5 @@ pub mod challenges;
 pub mod event;
 pub mod repo;
 pub mod sessions;
+pub mod teams;
 pub mod users;

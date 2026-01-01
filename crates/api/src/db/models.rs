@@ -105,6 +105,7 @@ pub struct NewSession {
 pub struct Team {
     pub id: Uuid,
     pub name: String,
+    pub slug: String,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub join_code: Option<String>,
@@ -114,6 +115,7 @@ pub struct Team {
 #[diesel(table_name = teams)]
 pub struct NewTeam {
     pub name: String,
+    pub slug: String,
     pub join_code: Option<String>,
 }
 
