@@ -28,8 +28,10 @@ pub struct CtfChallengeMetadata {
     /// Description of the challenge in Markdown format
     pub description_md: String,
     /// JS code that runs setFlagValidationFunction((flag) => boolean)
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub flag_validation_fn: Option<String>,
     /// Just the flag as a string, if possible
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub flag: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub categories: Vec<String>,
@@ -44,7 +46,7 @@ pub struct CtfChallengeMetadata {
     #[serde(default)]
     pub auto_publish_src: bool,
     pub difficulty: String,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "serde_json::Value::is_null")]
     #[boa(into_js_with = "json_into_js")]
     pub additional_metadata: serde_json::Value,
 }

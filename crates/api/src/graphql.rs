@@ -20,6 +20,8 @@ mod handlers;
 mod mutation;
 mod query;
 
+pub use handlers::challenges::export::{export_challenge, retrieve_file};
+
 #[derive(Clone)]
 pub struct BaseContext {
     pub grpc_client: tonic::transport::Channel,

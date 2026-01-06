@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+pub mod compose;
+pub mod dir_packer;
 pub mod loader;
-pub mod manifest;
 pub mod metadata;

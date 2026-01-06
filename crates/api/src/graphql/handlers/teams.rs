@@ -22,9 +22,11 @@ impl Team {
     pub fn slug(&self) -> &str {
         &self.slug
     }
-    
+
     pub fn join_code(&self, ctx: &crate::graphql::Context) -> juniper::FieldResult<Option<&str>> {
-        if ctx.user.as_ref().is_some_and(|u| u.role == crate::db::models::UserRole::Admin || u.team_id == Some(self.id)) {
+        if ctx.user.as_ref().is_some_and(|u| {
+            u.role == crate::db::models::UserRole::Admin || u.team_id == Some(self.id)
+        }) {
             Ok(self.join_code.as_deref())
         } else {
             Err(juniper::FieldError::new(
@@ -71,9 +73,7 @@ pub async fn join_team_with_code(
         use crate::db::schema::users::dsl::*;
 
         diesel::update(users.filter(id.eq(current_user.user_id)))
-            .set(
-                team_id.eq(team_record.id),
-            )
+            .set(team_id.eq(team_record.id))
             .execute(&mut ctx.get_db_conn().await)
             .await?;
     }
@@ -123,9 +123,7 @@ pub async fn create_team(
         use crate::db::schema::users::dsl::*;
 
         diesel::update(users.filter(id.eq(current_user.user_id)))
-            .set(
-                team_id.eq(inserted_team.id),
-            )
+            .set(team_id.eq(inserted_team.id))
             .execute(&mut ctx.get_db_conn().await)
             .await?;
     }
@@ -133,9 +131,7 @@ pub async fn create_team(
     Ok(inserted_team)
 }
 
-pub async fn leave_team(
-    ctx: &crate::graphql::Context,
-) -> juniper::FieldResult<bool> {
+pub async fn leave_team(ctx: &crate::graphql::Context) -> juniper::FieldResult<bool> {
     let current_user = ctx.require_authentication()?;
 
     if current_user.team_id.is_none() {
@@ -149,9 +145,7 @@ pub async fn leave_team(
         use crate::db::schema::users::dsl::*;
 
         diesel::update(users.filter(id.eq(current_user.user_id)))
-            .set(
-                team_id.eq::<Option<uuid::Uuid>>(None),
-            )
+            .set(team_id.eq::<Option<uuid::Uuid>>(None))
             .execute(&mut ctx.get_db_conn().await)
             .await?;
     }
@@ -178,15 +172,12 @@ pub async fn leave_team(
     Ok(true)
 }
 
-pub async fn enable_join_code(
-    ctx: &crate::graphql::Context,
-) -> juniper::FieldResult<String> {
+pub async fn enable_join_code(ctx: &crate::graphql::Context) -> juniper::FieldResult<String> {
     let current_user = ctx.require_authentication()?;
 
-    let team_id_val = current_user.team_id.ok_or_else(|| juniper::FieldError::new(
-        "User is not in a team",
-        juniper::Value::null(),
-    ))?;
+    let team_id_val = current_user
+        .team_id
+        .ok_or_else(|| juniper::FieldError::new("User is not in a team", juniper::Value::null()))?;
 
     use crate::db::schema::teams::dsl::*;
 
@@ -205,15 +196,12 @@ pub async fn enable_join_code(
     Ok(new_code)
 }
 
-pub async fn disable_join_code(
-    ctx: &crate::graphql::Context,
-) -> juniper::FieldResult<bool> {
+pub async fn disable_join_code(ctx: &crate::graphql::Context) -> juniper::FieldResult<bool> {
     let current_user = ctx.require_authentication()?;
 
-    let team_id_val = current_user.team_id.ok_or_else(|| juniper::FieldError::new(
-        "User is not in a team",
-        juniper::Value::null(),
-    ))?;
+    let team_id_val = current_user
+        .team_id
+        .ok_or_else(|| juniper::FieldError::new("User is not in a team", juniper::Value::null()))?;
 
     use crate::db::schema::teams::dsl::*;
 
@@ -225,9 +213,7 @@ pub async fn disable_join_code(
     Ok(true)
 }
 
-pub async fn get_teams(
-    ctx: &crate::graphql::Context,
-) -> juniper::FieldResult<Vec<Team>> {
+pub async fn get_teams(ctx: &crate::graphql::Context) -> juniper::FieldResult<Vec<Team>> {
     let team_records = crate::db::schema::teams::table
         .select(Team::as_select())
         .load::<Team>(&mut ctx.get_db_conn().await)

@@ -6,6 +6,7 @@ pub mod flags;
 pub mod instances;
 pub mod invalid_submissions;
 pub mod solves;
+pub mod export;
 
 use std::collections::HashMap;
 
@@ -38,6 +39,7 @@ pub struct CtfChallengeMetadata {
     pub points: i32,
     /// Whether the user can start an instance of this challenge
     pub can_start: bool,
+    pub can_export: bool,
 }
 
 async fn get_challenges_for_actor_internal(
@@ -51,6 +53,7 @@ async fn get_challenges_for_actor_internal(
             actor,
             solved_challenges: HashMap::new(),
             total_competitors: total_competitors as u64,
+            require_release: current_role.is_none() || current_role.unwrap() < UserRole::Author,
         })
         .await?
         .into_inner()
@@ -69,11 +72,12 @@ async fn get_challenges_for_actor_internal(
             description_md: c.description,
             categories: c.categories,
             difficulty: c.difficulty,
-            attachments: c.files.keys().cloned().collect(),
+            attachments: c.attachments,
             release_time: c.release_timestamp.map(|t| t as i32),
             end_time: c.end_timestamp.map(|t| t as i32),
             points: c.points as i32,
             can_start: c.can_start,
+            can_export: c.can_export,
         })
         .collect();
     Ok(result)
@@ -183,6 +187,11 @@ impl CtfChallengeMetadata {
         };
 
         Ok(solve_count > 0)
+    }
+    
+    /// Whether the challenge source code can be exported by the user
+    fn can_export(&self) -> bool {
+        self.can_export
     }
 
     async fn solves(&self, context: &Context) -> juniper::FieldResult<i32> {

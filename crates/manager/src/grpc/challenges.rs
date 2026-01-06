@@ -8,12 +8,14 @@ use std::path::PathBuf;
 use tonic::Response;
 
 use crate::grpc::api::{
-    Challenge, CheckFlagRequest, CheckFlagResponse, ConnectionInfo,
-    GetChallengeInstanceStatusRequest, GetChallengeInstanceStatusResponse, ListChallengesRequest,
-    ListChallengesResponse, Protocol, StartChallengeInstanceRequest,
-    StartChallengeInstanceResponse, StopChallengeInstanceRequest, StopChallengeInstanceResponse,
+    Challenge, CheckFlagRequest, CheckFlagResponse, ConnectionInfo, ExportChallengeRequest,
+    ExportChallengeResponse, GetChallengeInstanceStatusRequest, GetChallengeInstanceStatusResponse,
+    ListChallengesRequest, ListChallengesResponse, Protocol, RetrieveFileRequest,
+    RetrieveFileResponse, StartChallengeInstanceRequest, StartChallengeInstanceResponse,
+    StopChallengeInstanceRequest, StopChallengeInstanceResponse,
 };
 use crate::instances::InstanceState;
+use crate::repo::challenges::loader::tera::render_dir_recursively;
 use crate::repo::challenges::loader::{load_challenge_from_repo, load_challenges_from_repo};
 
 use super::api::challenges_service_server::ChallengesService;
@@ -23,31 +25,32 @@ pub struct ChallengeManager {
 }
 
 fn get_connection_details(
-    challenge: &crate::repo::challenges::manifest::ChallengeYml,
+    challenge: &compose_spec::Compose,
     challenge_id: &str,
     instance_id: &str,
-    actor: &str,
 ) -> Vec<ConnectionInfo> {
     let mut connection_info = vec![];
     for (svc_id, svc) in &challenge.services {
-        for exposed_port in &svc.external_ports {
+        for exposed_port in compose_spec::service::ports::into_long_iter(svc.ports.clone()) {
             connection_info.push(ConnectionInfo {
                 host: format!(
                     "{}-{}-challenge-{}-instance-{}.{}",
                     svc_id,
-                    exposed_port.port,
+                    exposed_port
+                        .published
+                        .map(|r| r.start())
+                        .unwrap_or(exposed_port.target),
                     challenge_id,
                     instance_id,
                     std::env::var("EXPOSED_DOMAIN").unwrap_or("localhost".to_string())
                 ),
                 port: 443,
-                protocol: match exposed_port.protocol {
-                    crate::repo::challenges::manifest::service::Protocol::HTTP => {
-                        Protocol::Https.into()
-                    }
-                    crate::repo::challenges::manifest::service::Protocol::TCP => {
-                        Protocol::TcpTls.into()
-                    }
+                protocol: if exposed_port.protocol.as_ref().is_none_or(|p| p.is_tcp()) {
+                    Protocol::Tcp as i32
+                } else if exposed_port.protocol.as_ref().is_some_and(|p| p.is_udp()) {
+                    Protocol::Udp as i32
+                } else {
+                    continue;
                 },
             });
         }
@@ -62,7 +65,7 @@ impl ChallengesService for ChallengeManager {
         request: tonic::Request<ListChallengesRequest>,
     ) -> Result<tonic::Response<ListChallengesResponse>, tonic::Status> {
         let request = request.into_inner();
-        let challenges = load_challenges_from_repo(&self.repo_dir, &request.actor)
+        let challenges = load_challenges_from_repo(&self.repo_dir, &request.actor, false)
             .await
             .map_err(|e| tonic::Status::internal(format!("Failed to load challenges: {}", e)))?;
 
@@ -70,11 +73,19 @@ impl ChallengesService for ChallengeManager {
             .await
             .map_err(|e| tonic::Status::internal(format!("Failed to load event config: {}", e)))?;
         let mut out_challenges = vec![];
-        for (id, c) in challenges {
+        for (id, chall) in challenges {
+            if request.require_release {
+                let now = chrono::Utc::now().timestamp() as u64;
+                if let Some(release_time) = chall.metadata.release_time {
+                    if now < release_time {
+                        continue;
+                    }
+                }
+            }
             let solve_info = request.solved_challenges.get(&id);
             let points = event_config
                 .calculate_points(
-                    &c.metadata,
+                    &chall.metadata,
                     solve_info
                         .as_ref()
                         .map(|s| s.current_solves as u32)
@@ -94,16 +105,17 @@ impl ChallengesService for ChallengeManager {
                 })?;
             out_challenges.push(Challenge {
                 id: id,
-                name: c.metadata.name,
-                description: c.metadata.description_md,
-                release_timestamp: c.metadata.release_time,
-                end_timestamp: c.metadata.end_time,
-                categories: c.metadata.categories,
-                authors: c.metadata.authors,
-                files: HashMap::new(),
-                can_start: !c.services.is_empty(),
+                name: chall.metadata.name,
+                description: chall.metadata.description_md,
+                release_timestamp: chall.metadata.release_time,
+                end_timestamp: chall.metadata.end_time,
+                categories: chall.metadata.categories,
+                authors: chall.metadata.authors,
+                attachments: chall.metadata.attachments,
+                can_start: !chall.compose.services.is_empty(),
                 points,
-                difficulty: c.metadata.difficulty,
+                difficulty: chall.metadata.difficulty,
+                can_export: chall.metadata.auto_publish_src,
             });
         }
         let response = ListChallengesResponse {
@@ -128,7 +140,7 @@ impl ChallengesService for ChallengeManager {
             ));
         }
         let challenge =
-            load_challenge_from_repo(&self.repo_dir, &request.challenge_id, &request.actor)
+            load_challenge_from_repo(&self.repo_dir, &request.challenge_id, &request.actor, false)
                 .await
                 .map_err(|e| {
                     tonic::Status::internal(format!(
@@ -137,7 +149,7 @@ impl ChallengesService for ChallengeManager {
                     ))
                 })?;
 
-        if challenge.services.is_empty() {
+        if challenge.compose.services.is_empty() {
             return Err(tonic::Status::failed_precondition(format!(
                 "Challenge {} has no services to start",
                 request.challenge_id
@@ -168,18 +180,35 @@ impl ChallengesService for ChallengeManager {
                 request.challenge_id, e
             ))
         })?;
-        let connection_info = get_connection_details(
-            &challenge,
-            &request.challenge_id,
-            &instance_id,
+        let connection_info =
+            get_connection_details(&challenge.compose, &request.challenge_id, &instance_id);
+
+        let working_dir = tempfile::tempdir().map_err(|e| {
+            tonic::Status::internal(format!(
+                "Failed to create temporary working directory: {}",
+                e
+            ))
+        })?;
+
+        render_dir_recursively(
+            &self.repo_dir.join("challs").join(&request.challenge_id),
+            &working_dir.path(),
             &request.actor,
-        );
+            false,
+        )
+        .map_err(|e| {
+            tonic::Status::internal(format!(
+                "Failed to render challenge templates for challenge {}: {}",
+                request.challenge_id, e
+            ))
+        })?;
 
         crate::instances::deploy::deploy_challenge(
             &self.kube_client,
             &instance_id,
-            challenge,
+            challenge.compose,
             &std::env::var("EXPOSED_DOMAIN").unwrap_or("localhost".to_string()),
+            &working_dir.path(),
         )
         .await
         .map_err(|e| {
@@ -259,7 +288,7 @@ impl ChallengesService for ChallengeManager {
             _ => false,
         };
         let challenge =
-            load_challenge_from_repo(&self.repo_dir, &request.challenge_id, &request.actor)
+            load_challenge_from_repo(&self.repo_dir, &request.challenge_id, &request.actor, false)
                 .await
                 .map_err(|e| {
                     tonic::Status::internal(format!(
@@ -267,12 +296,8 @@ impl ChallengesService for ChallengeManager {
                         request.challenge_id, e
                     ))
                 })?;
-        let connection_info = get_connection_details(
-            &challenge,
-            &request.challenge_id,
-            &instance_id,
-            &request.actor,
-        );
+        let connection_info =
+            get_connection_details(&challenge.compose, &request.challenge_id, &instance_id);
         Ok(Response::new(GetChallengeInstanceStatusResponse {
             is_deployed: true,
             is_ready,
@@ -287,24 +312,25 @@ impl ChallengesService for ChallengeManager {
     ) -> Result<tonic::Response<CheckFlagResponse>, tonic::Status> {
         let request = request.into_inner();
         let challenges = if let Some(challenge_id) = request.challenge_id {
-            let challenge = load_challenge_from_repo(&self.repo_dir, &challenge_id, &request.actor)
-                .await
-                .map_err(|e| {
-                    tonic::Status::internal(format!(
-                        "Failed to load challenge {} from repo: {}",
-                        challenge_id, e
-                    ))
-                })?;
+            let challenge =
+                load_challenge_from_repo(&self.repo_dir, &challenge_id, &request.actor, false)
+                    .await
+                    .map_err(|e| {
+                        tonic::Status::internal(format!(
+                            "Failed to load challenge {} from repo: {}",
+                            challenge_id, e
+                        ))
+                    })?;
             HashMap::from([(challenge_id, challenge)])
         } else {
-            load_challenges_from_repo(&self.repo_dir, &request.actor)
+            load_challenges_from_repo(&self.repo_dir, &request.actor, false)
                 .await
                 .map_err(|e| tonic::Status::internal(format!("Failed to load challenges: {}", e)))?
         };
         let mut solved_challenge_id = None;
         let total_challs = challenges.len();
-        for (challenge_id, challenge) in challenges {
-            match challenge.metadata.check_flag(&request.flag).map_err(|e| {
+        for (challenge_id, chall) in challenges {
+            match chall.metadata.check_flag(&request.flag).map_err(|e| {
                 tonic::Status::internal(format!(
                     "Failed to check flag for challenge {}: {}",
                     challenge_id, e
@@ -331,6 +357,109 @@ impl ChallengesService for ChallengeManager {
         }
         Ok(Response::new(CheckFlagResponse {
             solved_challenge_id,
+        }))
+    }
+
+    async fn export_challenge(
+        &self,
+        request: tonic::Request<ExportChallengeRequest>,
+    ) -> Result<tonic::Response<ExportChallengeResponse>, tonic::Status> {
+        let request = request.into_inner();
+        let challenge =
+            load_challenge_from_repo(&self.repo_dir, &request.challenge_id, &request.actor, true)
+                .await
+                .map_err(|e| {
+                    tonic::Status::internal(format!(
+                        "Failed to load challenge {} from repo: {}",
+                        request.challenge_id, e
+                    ))
+                })?;
+        if !challenge.metadata.auto_publish_src {
+            return Err(tonic::Status::permission_denied(format!(
+                "Challenge {} is not allowed to be exported",
+                request.challenge_id
+            )));
+        }
+        if request.require_release {
+            let now = chrono::Utc::now().timestamp() as u64;
+            if let Some(release_time) = challenge.metadata.release_time {
+                if now < release_time {
+                    return Err(tonic::Status::permission_denied(format!(
+                        "Challenge {} has not been released yet",
+                        request.challenge_id
+                    )));
+                }
+            }
+        }
+        let packed_data = challenge.export.ok_or_else(|| {
+            tonic::Status::internal(format!(
+                "Challenge {} does not have export data",
+                request.challenge_id
+            ))
+        })?;
+        Ok(Response::new(ExportChallengeResponse {
+            challenge_archive: packed_data,
+        }))
+    }
+
+    async fn retrieve_file(
+        &self,
+        request: tonic::Request<RetrieveFileRequest>,
+    ) -> Result<tonic::Response<RetrieveFileResponse>, tonic::Status> {
+        let request = request.into_inner();
+        let challenge =
+            load_challenge_from_repo(&self.repo_dir, &request.challenge_id, &request.actor, true)
+                .await
+                .map_err(|e| {
+                    tonic::Status::internal(format!(
+                        "Failed to load challenge {} from repo: {}",
+                        request.challenge_id, e
+                    ))
+                })?;
+        if request.require_release {
+            let now = chrono::Utc::now().timestamp() as u64;
+            if let Some(release_time) = challenge.metadata.release_time {
+                if now < release_time {
+                    return Err(tonic::Status::permission_denied(format!(
+                        "Challenge {} has not been released yet",
+                        request.challenge_id
+                    )));
+                }
+            }
+        }
+        let working_dir = tempfile::tempdir().map_err(|e| {
+            tonic::Status::internal(format!(
+                "Failed to create temporary working directory: {}",
+                e
+            ))
+        })?;
+        render_dir_recursively(
+            &self.repo_dir.join("challs").join(&request.challenge_id),
+            &working_dir.path(),
+            &request.actor,
+            true,
+        )
+        .map_err(|e| {
+            tonic::Status::internal(format!(
+                "Failed to render challenge templates for challenge {}: {}",
+                request.challenge_id, e
+            ))
+        })?;
+        if !challenge.metadata.attachments.contains(&request.filename) {
+            return Err(tonic::Status::not_found(format!(
+                "File {} not found in challenge {}",
+                request.filename, request.challenge_id
+            )));
+        }
+        let file_path = working_dir.path().join(&request.filename);
+        let file_content = std::fs::read(&file_path).map_err(|e| {
+            tonic::Status::internal(format!(
+                "Failed to read file {} for challenge {}: {}",
+                request.filename, request.challenge_id, e
+            ))
+        })?;
+        Ok(Response::new(crate::grpc::api::RetrieveFileResponse {
+            file_content,
         }))
     }
 }

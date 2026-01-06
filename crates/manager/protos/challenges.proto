@@ -21,6 +21,7 @@ message ListChallengesRequest {
   map<string, SolvedChallenge> solved_challenges = 2;
   // If this is a teams CTF, number of teams competing, otherwise number of individual competitors
   uint64 total_competitors = 3;
+  bool   require_release   = 4;
 }
 
 message ListChallengesResponse {
@@ -69,6 +70,27 @@ message CheckFlagResponse {
   optional string solved_challenge_id = 1;
 }
 
+message ExportChallengeRequest {
+  string challenge_id    = 1;
+  string actor           = 2;
+  bool   require_release = 3;
+}
+
+message ExportChallengeResponse {
+  bytes challenge_archive = 1;
+}
+
+message RetrieveFileRequest {
+  string challenge_id    = 1;
+  string actor           = 2;
+  string filename        = 3;
+  bool   require_release = 4;
+}
+
+message RetrieveFileResponse {
+  bytes file_content = 1;
+}
+
 // ChallengesService is responsible for listing available challenges, as well as
 // starting and stopping challenge instances (if applicable).
 service ChallengesService {
@@ -82,4 +104,8 @@ service ChallengesService {
   rpc GetChallengeInstanceStatus (GetChallengeInstanceStatusRequest) returns (GetChallengeInstanceStatusResponse);
   // CheckFlag verifies if the provided flag is correct for the specified challenge and team.
   rpc CheckFlag (CheckFlagRequest) returns (CheckFlagResponse);
+  // ExportChallenge exports the specified challenge as a tar.gz archive.
+  rpc ExportChallenge (ExportChallengeRequest) returns (ExportChallengeResponse);
+  // RetrieveFile retrieves a specific file attached to the challenge.
+  rpc RetrieveFile (RetrieveFileRequest) returns (RetrieveFileResponse);
 }

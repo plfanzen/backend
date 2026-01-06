@@ -66,14 +66,14 @@ impl Mutation {
     ) -> FieldResult<Option<String>> {
         handlers::challenges::flags::submit_flag(context, challenge_id, flag).await
     }
-    
+
     async fn join_team_with_code(
         context: &Context,
         join_code_input: String,
     ) -> FieldResult<crate::db::models::Team> {
         handlers::teams::join_team_with_code(context, join_code_input).await
     }
-    
+
     async fn create_team(
         context: &Context,
         name: String,
@@ -82,22 +82,16 @@ impl Mutation {
     ) -> FieldResult<crate::db::models::Team> {
         handlers::teams::create_team(context, name, slug, create_join_code).await
     }
-    
-    async fn leave_team(
-        context: &Context,
-    ) -> FieldResult<bool> {
+
+    async fn leave_team(context: &Context) -> FieldResult<bool> {
         handlers::teams::leave_team(context).await
     }
-    
-    async fn enable_join_code(
-        context: &Context,
-    ) -> FieldResult<String> {
+
+    async fn enable_join_code(context: &Context) -> FieldResult<String> {
         handlers::teams::enable_join_code(context).await
     }
-    
-    async fn disable_join_code(
-        context: &Context,
-    ) -> FieldResult<bool> {
+
+    async fn disable_join_code(context: &Context) -> FieldResult<bool> {
         handlers::teams::disable_join_code(context).await
     }
 }

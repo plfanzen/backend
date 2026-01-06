@@ -38,6 +38,8 @@ diesel_migrations = { version = "2.3.1", features = ["postgres"] }
 dashmap = "6.1.0"
 moka = { version = "0.12.12", features = ["future"] }
 cached = { version = "0.56.0", features = ["async"] }
+slugify = "0.1.0"
+http-body-util = "0.1.3"
 
 [build-dependencies]
 tonic-prost-build = "0.14"

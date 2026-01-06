@@ -39,15 +39,17 @@ pub fn process_template(
     template_path: &std::path::Path,
     // The user or team requesting the challenge
     actor: &str,
+    is_export: bool,
 ) -> Result<String, TeraError> {
     let tera = tera::Tera::default();
 
     let mut tera_ctx = tera::Context::new();
     tera_ctx.insert("actor", actor);
+    tera_ctx.insert("is_export", &is_export);
 
     let mut tera_with_js = TeraWithJs::new(tera);
 
-    let tera_dir = template_path.parent().unwrap().join("_tera");
+    let tera_dir = template_path.parent().unwrap().join("_plfanzen");
 
     if tera_dir.is_dir() {
         load_tera_helpers(&tera_dir, &mut |code| {
@@ -69,4 +71,42 @@ pub fn process_template(
         &file_content,
         &tera_ctx,
     )?)
+}
+
+pub fn render_dir_recursively(
+    source_dir: &std::path::Path,
+    dest_dir: &std::path::Path,
+    actor: &str,
+    is_export: bool,
+) -> Result<(), Box<dyn std::error::Error>> {
+    for entry in std::fs::read_dir(source_dir)? {
+        let entry = entry?;
+        let path = entry.path();
+        let dest_path = dest_dir.join(entry.file_name());
+        let absolute_path = std::fs::canonicalize(&path)?;
+        if !absolute_path.starts_with(std::fs::canonicalize(source_dir)?) {
+            return Err(format!(
+                "Path traversal detected when rendering template: {}",
+                path.to_string_lossy()
+            )
+            .into());
+        }
+        // Avoid infinite recursion
+        if absolute_path == std::fs::canonicalize(source_dir)? {
+            continue;
+        }
+        if path.is_dir() {
+            std::fs::create_dir_all(&dest_path)?;
+            render_dir_recursively(&path, &dest_path, actor, is_export)?;
+        } else if path.is_file() {
+            if path.extension().and_then(|s| s.to_str()) == Some("plftera") {
+                let rendered_content = process_template(&path, actor, is_export)?;
+                let dest_file_path = dest_path.with_extension("");
+                std::fs::write(dest_file_path, rendered_content)?;
+            } else {
+                std::fs::copy(&path, &dest_path)?;
+            }
+        }
+    }
+    Ok(())
 }

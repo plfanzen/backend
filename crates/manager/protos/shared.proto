@@ -14,11 +14,11 @@ message Challenge {
     optional uint64 end_timestamp = 5;
     repeated string categories = 6;
     repeated string authors = 7;
-    // attached files (filename -> content)
-    map<string, bytes> files = 8;
+    repeated string attachments = 8;
     bool can_start = 9;
     uint32 points = 10;
     string difficulty = 11;
+    bool can_export = 12;
 }
 
 enum Protocol {

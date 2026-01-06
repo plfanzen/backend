@@ -12,7 +12,7 @@ mod grpc;
 mod instances;
 mod js;
 mod repo;
-mod templating;
+mod utils;
 
 #[tokio::main]
 async fn main() {

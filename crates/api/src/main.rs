@@ -7,11 +7,13 @@ use std::{convert::Infallible, error::Error, net::SocketAddr, sync::Arc};
 use diesel::Connection;
 use diesel_async::pooled_connection::AsyncDieselConnectionManager;
 use ed25519_dalek::SigningKey;
-use hyper::{Method, Response, StatusCode, service::service_fn};
+use hyper::{Method, Response, StatusCode, body::Bytes, service::service_fn};
 use hyper_util::rt::{TokioExecutor, TokioIo};
 use juniper::{EmptySubscription, RootNode};
 use juniper_hyper::{graphiql, graphql, playground};
 use tokio::net::TcpListener;
+use slugify::slugify;
+use http_body_util::Full;
 
 use crate::graphql::{AuthenticatedUser, Context, Mutation, Query, Schema};
 
@@ -174,22 +176,122 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
                                         graphql(root_node, Arc::new(ctx), req),
                                     )
                                     .await
+                                    .map(|resp| resp.map(|body| Full::new(Bytes::copy_from_slice(body.as_bytes()))))
                                     .unwrap_or_else(|_| {
-                                        let mut resp = Response::new(String::new());
+                                        let mut resp = Response::new(Full::new(Bytes::from("Request timed out")));
                                         *resp.status_mut() = StatusCode::GATEWAY_TIMEOUT;
                                         resp
                                     })
                                 }
-                                (&Method::OPTIONS, "/graphql") => {
-                                    let mut resp = Response::new(String::new());
+                                (&Method::OPTIONS, _) => {
+                                    let mut resp = Response::new(Full::new(Bytes::new()));
                                     *resp.status_mut() = StatusCode::NO_CONTENT;
                                     resp
+                                },
+                                (&Method::GET, "/graphiql") => graphiql("/graphql", None).await.map(|body| Full::new(Bytes::from(body))),
+                                (&Method::GET, "/playground") => playground("/graphql", None).await.map(|body| Full::new(Bytes::from(body))),
+                                (&Method::GET, path) => {
+                                    if path.starts_with("/export-challenge/") {
+                                        let challenge_id = path
+                                            .trim_start_matches("/export-challenge/")
+                                            .to_string();
+                                        let challenge_slug = slugify!(&challenge_id);
+                                        match graphql::export_challenge(
+                                            ctx,
+                                            challenge_id.clone(),
+                                        )
+                                        .await
+                                        {
+                                            Ok(archive_data) => {
+                                                let mut resp = Response::new(Full::new(Bytes::from(archive_data)));
+                                                resp.headers_mut().insert(
+                                                    hyper::header::CONTENT_TYPE,
+                                                    hyper::header::HeaderValue::from_static(
+                                                        "application/gzip",
+                                                    ),
+                                                );
+                                                let filename = format!(
+                                                    "{}.tar.gz",
+                                                    challenge_slug
+                                                );
+                                                resp.headers_mut().insert(
+                                                    hyper::header::CONTENT_DISPOSITION,
+                                                    hyper::header::HeaderValue::from_str(
+                                                        &format!(
+                                                            "attachment; filename=\"{}\"",
+                                                            filename
+                                                        ),
+                                                    )
+                                                    .unwrap(),
+                                                );
+                                                resp
+                                            }
+                                            Err((status_code, message)) => {
+                                                let mut resp = Response::new(Full::new(Bytes::from(message)));
+                                                *resp.status_mut() =
+                                                    StatusCode::from_u16(status_code).unwrap_or(
+                                                        StatusCode::INTERNAL_SERVER_ERROR,
+                                                    );
+                                                resp
+                                            }
+                                        }
+                                    } else if path.starts_with("/retrieve-file/") {
+                                        let parts: Vec<&str> =
+                                            path.trim_start_matches("/retrieve-file/").splitn(2, '/').collect();
+                                        if parts.len() != 2 {
+                                            let mut resp = Response::new(Full::new(Bytes::from("Invalid request")));
+                                            *resp.status_mut() = StatusCode::BAD_REQUEST;
+                                            return Ok(resp);
+                                        }
+                                        let challenge_id = parts[0].to_string();
+                                        let filename = parts[1].to_string();
+                                        match graphql::retrieve_file(
+                                            ctx,
+                                            challenge_id.clone(),
+                                            filename.clone(),
+                                        )
+                                        .await
+                                        {
+                                            Ok(file_data) => {
+                                                let mut resp = Response::new(Full::new(Bytes::from(file_data)));
+                                                resp.headers_mut().insert(
+                                                    hyper::header::CONTENT_TYPE,
+                                                    hyper::header::HeaderValue::from_static(
+                                                        "application/octet-stream",
+                                                    ),
+                                                );
+                                                let file_slug = slugify!(&filename);
+                                                let content_disposition = format!(
+                                                    "attachment; filename=\"{}\"",
+                                                    file_slug
+                                                );
+                                                resp.headers_mut().insert(
+                                                    hyper::header::CONTENT_DISPOSITION,
+                                                    hyper::header::HeaderValue::from_str(
+                                                        &content_disposition,
+                                                    )
+                                                    .unwrap(),
+                                                );
+                                                resp
+                                            }
+                                            Err((status_code, message)) => {
+                                                let mut resp = Response::new(Full::new(Bytes::from(message)));
+                                                *resp.status_mut() =
+                                                    StatusCode::from_u16(status_code).unwrap_or(
+                                                        StatusCode::INTERNAL_SERVER_ERROR,
+                                                    );
+                                                resp
+                                            }
+                                        }
+                                    } else {
+                                        let mut resp = Response::new(Full::new(Bytes::new()));
+                                        *resp.status_mut() = StatusCode::NOT_FOUND;
+                                        resp
+                                    }
                                 }
-                                (&Method::GET, "/graphiql") => graphiql("/graphql", None).await,
-                                (&Method::GET, "/playground") => playground("/graphql", None).await,
                                 _ => {
-                                    let mut resp = Response::new(String::new());
-                                    *resp.status_mut() = StatusCode::NOT_FOUND;
+                                    let mut resp = Response::new(Full::new(Bytes::new()));
+                                    *resp.status_mut() = StatusCode::METHOD_NOT_ALLOWED;
                                     resp
                                 }
                             })

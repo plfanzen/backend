@@ -47,7 +47,7 @@ impl RepositoryService for RepoManager {
     /// GetBuildStatus retrieves the build status of all challenges.
     async fn get_build_status(
         &self,
-        request: tonic::Request<GetBuildStatusRequest>,
+        _request: tonic::Request<GetBuildStatusRequest>,
     ) -> Result<tonic::Response<GetBuildStatusResponse>, tonic::Status> {
         todo!()
     }
@@ -108,7 +108,7 @@ impl RepositoryService for RepoManager {
 
     async fn get_sync_status(
         &self,
-        request: tonic::Request<GetSyncStatusRequest>,
+        _request: tonic::Request<GetSyncStatusRequest>,
     ) -> Result<tonic::Response<GetSyncStatusResponse>, tonic::Status> {
         let sync_status =
             crate::repo::get_head_commit_info(&self.repo_dir).map(|commit_info| SyncStatus {
