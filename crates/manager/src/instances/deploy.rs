@@ -8,20 +8,29 @@ use compose_spec::Resource;
 use k8s_openapi::api::{apps::v1::Deployment, core::v1::PersistentVolumeClaim};
 use kube::{Api, Client};
 
-use crate::repo::challenges::compose::{
-    service::{AsDeployment, AsExternalService, AsIngress, AsService, ComposeServiceError},
-    volume::{AsPvc, default_size_pvc},
+use crate::repo::challenges::{
+    compose::{
+        service::{AsDeployment, AsExternalService, AsIngress, AsService, ComposeServiceError},
+        volume::{AsPvc, default_size_pvc, get_pvc},
+    },
+    loader::Challenge,
 };
 
 pub async fn deploy_challenge(
     kube_client: &Client,
     challenge_ns: &str,
-    challenge: compose_spec::Compose,
+    challenge: Challenge,
     exposed_domain: &str,
     working_dir: &Path,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    let requires_data_pvc = challenge
+        .compose
+        .services
+        .values()
+        .any(|svc| svc.requires_data_pvc());
+
     let (deployments, svcs, ingressroutes, ingressroutestcp): (Vec<_>, Vec<_>, Vec<_>, Vec<_>) =
-        challenge.services.into_iter().try_fold(
+        challenge.compose.services.into_iter().try_fold(
             (Vec::new(), Vec::new(), Vec::new(), Vec::new()),
             |(mut deployments, mut svcs, mut ingressroutes, mut ingressroutestcp),
              (svc_id, svc)|
@@ -45,7 +54,8 @@ pub async fn deploy_challenge(
             },
         )?;
 
-    let pvcs = challenge
+    let mut pvcs = challenge
+        .compose
         .volumes
         .into_iter()
         .map(|(vol_id, vol)| match vol {
@@ -55,6 +65,17 @@ pub async fn deploy_challenge(
         })
         .collect::<Result<Vec<_>, _>>()
         .map_err(|_| ComposeServiceError::ExternalVolume)?;
+
+    if requires_data_pvc {
+        if let Some(data_pvc_size) = &challenge.metadata.data_pvc_size {
+            pvcs.push(get_pvc(
+                "plfanzen_internal_ctf_data".to_string(),
+                data_pvc_size.to_string(),
+            ));
+        } else {
+            pvcs.push(default_size_pvc("plfanzen_internal_ctf_data".to_string()));
+        }
+    }
 
     let deployment_api: Api<Deployment> = Api::namespaced(kube_client.clone(), challenge_ns);
     for deployment in deployments {

@@ -2,7 +2,7 @@ pub trait AsPvc {
     fn as_pvc(&self, id: String) -> k8s_openapi::api::core::v1::PersistentVolumeClaim;
 }
 
-fn get_pvc(name: String, size: String) -> k8s_openapi::api::core::v1::PersistentVolumeClaim {
+pub fn get_pvc(name: String, size: String) -> k8s_openapi::api::core::v1::PersistentVolumeClaim {
     k8s_openapi::api::core::v1::PersistentVolumeClaim {
         metadata: k8s_openapi::apimachinery::pkg::apis::meta::v1::ObjectMeta {
             name: Some(name),

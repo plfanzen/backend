@@ -46,6 +46,7 @@ pub trait AsDeployment {
         id: String,
         working_dir: &Path,
     ) -> Result<k8s_openapi::api::apps::v1::Deployment, ComposeServiceError>;
+    fn requires_data_pvc(&self) -> bool;
 }
 
 pub trait AsService {

@@ -206,7 +206,7 @@ impl ChallengesService for ChallengeManager {
         crate::instances::deploy::deploy_challenge(
             &self.kube_client,
             &instance_id,
-            challenge.compose,
+            challenge,
             &std::env::var("EXPOSED_DOMAIN").unwrap_or("localhost".to_string()),
             &working_dir.path(),
         )

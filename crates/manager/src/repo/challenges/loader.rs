@@ -44,7 +44,7 @@ pub async fn load_challenge_from_dir(
             e
         )
     })?;
-    let compose: compose_spec::Compose = serde_yaml::from_str(&compose_content).map_err(|e| {
+    let mut compose: compose_spec::Compose = serde_yaml::from_str(&compose_content).map_err(|e| {
         format!(
             "Failed to parse docker-compose.yml from {}: {}",
             compose_path.to_string_lossy(),
@@ -54,7 +54,7 @@ pub async fn load_challenge_from_dir(
     let metadata = serde_yaml::from_value(
         compose
             .extensions
-            .get("x-ctf-metadata")
+            .shift_remove("x-ctf-metadata")
             .ok_or(format!(
                 "Missing ctf-metadata extension in docker-compose.yml at {}",
                 compose_path.to_string_lossy()

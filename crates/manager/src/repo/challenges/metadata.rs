@@ -46,6 +46,8 @@ pub struct CtfChallengeMetadata {
     #[serde(default)]
     pub auto_publish_src: bool,
     pub difficulty: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub data_pvc_size: Option<String>,
     #[serde(default, skip_serializing_if = "serde_json::Value::is_null")]
     #[boa(into_js_with = "json_into_js")]
     pub additional_metadata: serde_json::Value,
