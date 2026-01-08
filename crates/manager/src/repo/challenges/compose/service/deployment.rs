@@ -176,6 +176,8 @@ fn build_pod_spec(
             ..Default::default()
         }),
         init_containers: container::build_init_containers(svc),
+        enable_service_links: Some(false),
+        automount_service_account_token: Some(false),
         security_context: security::build_pod_security_context(svc),
         containers: vec![container],
         ..Default::default()
