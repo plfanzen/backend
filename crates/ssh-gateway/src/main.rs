@@ -6,7 +6,7 @@ use gateway::Gateway;
 use k8s_openapi::apiextensions_apiserver::pkg::apis::apiextensions::v1::CustomResourceDefinition;
 use kube::{Api, CustomResourceExt};
 use rand_core::OsRng;
-use russh::server::Server;
+use russh::{keys::ssh_key::LineEnding, server::Server};
 use std::sync::Arc;
 
 use crate::cr::SSHGateway;
@@ -15,13 +15,34 @@ use crate::cr::SSHGateway;
 async fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt::init();
 
+    let key_file = std::env::var("PRIVATE_KEY_FILE")
+        .unwrap_or_else(|_| "/data/ssh_host_key".to_string());
+    
+    let private_key = if std::path::Path::new(&key_file).exists() {
+        tracing::info!("Loading private key from {}", key_file);
+        let key_data = std::fs::read_to_string(&key_file)?;
+        russh::keys::decode_secret_key(&key_data, None)?
+    } else {
+        tracing::info!("Generating new private key and saving to {}", key_file);
+        let key = russh::keys::PrivateKey::random(
+            &mut OsRng,
+            russh::keys::Algorithm::Ed25519,
+        )?;
+        
+        if let Some(parent) = std::path::Path::new(&key_file).parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        
+        let key_string = key.to_openssh(LineEnding::LF)?;
+        std::fs::write(&key_file, key_string)?;
+        
+        key
+    };
+
     let mut config = russh::server::Config::default();
     config.inactivity_timeout = Some(std::time::Duration::from_secs(600));
     config.auth_rejection_time = std::time::Duration::from_millis(500);
-    config.keys = vec![russh::keys::PrivateKey::random(
-        &mut OsRng,
-        russh::keys::Algorithm::Ed25519,
-    )?];
+    config.keys = vec![private_key];
     let config = Arc::new(config);
 
     let gateway = Gateway::new();
