@@ -3,9 +3,13 @@ mod cr;
 mod gateway;
 
 use gateway::Gateway;
+use k8s_openapi::apiextensions_apiserver::pkg::apis::apiextensions::v1::CustomResourceDefinition;
+use kube::{Api, CustomResourceExt};
 use rand_core::OsRng;
 use russh::server::Server;
 use std::sync::Arc;
+
+use crate::cr::SSHGateway;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -29,6 +33,23 @@ async fn main() -> anyhow::Result<()> {
     let registry = gateway.backend_registry();
 
     let client = kube::Client::try_default().await?;
+    
+    let cr_api: Api<CustomResourceDefinition> = Api::all(client.clone());
+    let cr = SSHGateway::crd();
+    let cr_name = cr.metadata.name.as_ref().unwrap();
+    match cr_api.get_opt(cr_name).await {
+        Ok(Some(_)) => {
+            tracing::info!("CRD {} already exists", cr_name);
+        }
+        Ok(None) => {
+            tracing::info!("Creating CRD {}", cr_name);
+            cr_api.create(&Default::default(), &cr).await?;
+            tracing::info!("Created CRD {}", cr_name);
+        }
+        Err(e) => {
+            return Err(e.into());
+        }
+    }
     // Spawn controller task that can dynamically manage backends
     let controller = tokio::spawn(async move {
         crate::controller::run_controller(client, registry)
