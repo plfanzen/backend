@@ -7,13 +7,13 @@ use std::{convert::Infallible, error::Error, net::SocketAddr, sync::Arc};
 use diesel::Connection;
 use diesel_async::pooled_connection::AsyncDieselConnectionManager;
 use ed25519_dalek::SigningKey;
+use http_body_util::Full;
 use hyper::{Method, Response, StatusCode, body::Bytes, service::service_fn};
 use hyper_util::rt::{TokioExecutor, TokioIo};
 use juniper::{EmptySubscription, RootNode};
 use juniper_hyper::{graphiql, graphql, playground};
-use tokio::net::TcpListener;
 use slugify::slugify;
-use http_body_util::Full;
+use tokio::net::TcpListener;
 
 use crate::graphql::{AuthenticatedUser, Context, Mutation, Query, Schema};
 
@@ -176,9 +176,15 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
                                         graphql(root_node, Arc::new(ctx), req),
                                     )
                                     .await
-                                    .map(|resp| resp.map(|body| Full::new(Bytes::copy_from_slice(body.as_bytes()))))
+                                    .map(|resp| {
+                                        resp.map(|body| {
+                                            Full::new(Bytes::copy_from_slice(body.as_bytes()))
+                                        })
+                                    })
                                     .unwrap_or_else(|_| {
-                                        let mut resp = Response::new(Full::new(Bytes::from("Request timed out")));
+                                        let mut resp = Response::new(Full::new(Bytes::from(
+                                            "Request timed out",
+                                        )));
                                         *resp.status_mut() = StatusCode::GATEWAY_TIMEOUT;
                                         resp
                                     })
@@ -187,59 +193,62 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
                                     let mut resp = Response::new(Full::new(Bytes::new()));
                                     *resp.status_mut() = StatusCode::NO_CONTENT;
                                     resp
-                                },
-                                (&Method::GET, "/graphiql") => graphiql("/graphql", None).await.map(|body| Full::new(Bytes::from(body))),
-                                (&Method::GET, "/playground") => playground("/graphql", None).await.map(|body| Full::new(Bytes::from(body))),
+                                }
+                                (&Method::GET, "/graphiql") => graphiql("/graphql", None)
+                                    .await
+                                    .map(|body| Full::new(Bytes::from(body))),
+                                (&Method::GET, "/playground") => playground("/graphql", None)
+                                    .await
+                                    .map(|body| Full::new(Bytes::from(body))),
                                 (&Method::GET, path) => {
                                     if path.starts_with("/export-challenge/") {
                                         let challenge_id = path
                                             .trim_start_matches("/export-challenge/")
                                             .to_string();
                                         let challenge_slug = slugify!(&challenge_id);
-                                        match graphql::export_challenge(
-                                            ctx,
-                                            challenge_id.clone(),
-                                        )
-                                        .await
+                                        match graphql::export_challenge(ctx, challenge_id.clone())
+                                            .await
                                         {
                                             Ok(archive_data) => {
-                                                let mut resp = Response::new(Full::new(Bytes::from(archive_data)));
+                                                let mut resp = Response::new(Full::new(
+                                                    Bytes::from(archive_data),
+                                                ));
                                                 resp.headers_mut().insert(
                                                     hyper::header::CONTENT_TYPE,
                                                     hyper::header::HeaderValue::from_static(
                                                         "application/gzip",
                                                     ),
                                                 );
-                                                let filename = format!(
-                                                    "{}.tar.gz",
-                                                    challenge_slug
-                                                );
+                                                let filename = format!("{}.tar.gz", challenge_slug);
                                                 resp.headers_mut().insert(
                                                     hyper::header::CONTENT_DISPOSITION,
-                                                    hyper::header::HeaderValue::from_str(
-                                                        &format!(
-                                                            "attachment; filename=\"{}\"",
-                                                            filename
-                                                        ),
-                                                    )
+                                                    hyper::header::HeaderValue::from_str(&format!(
+                                                        "attachment; filename=\"{}\"",
+                                                        filename
+                                                    ))
                                                     .unwrap(),
                                                 );
                                                 resp
                                             }
                                             Err((status_code, message)) => {
-                                                let mut resp = Response::new(Full::new(Bytes::from(message)));
-                                                *resp.status_mut() =
-                                                    StatusCode::from_u16(status_code).unwrap_or(
-                                                        StatusCode::INTERNAL_SERVER_ERROR,
-                                                    );
+                                                let mut resp =
+                                                    Response::new(Full::new(Bytes::from(message)));
+                                                *resp.status_mut() = StatusCode::from_u16(
+                                                    status_code,
+                                                )
+                                                .unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
                                                 resp
                                             }
                                         }
                                     } else if path.starts_with("/retrieve-file/") {
-                                        let parts: Vec<&str> =
-                                            path.trim_start_matches("/retrieve-file/").splitn(2, '/').collect();
+                                        let parts: Vec<&str> = path
+                                            .trim_start_matches("/retrieve-file/")
+                                            .splitn(2, '/')
+                                            .collect();
                                         if parts.len() != 2 {
-                                            let mut resp = Response::new(Full::new(Bytes::from("Invalid request")));
+                                            let mut resp = Response::new(Full::new(Bytes::from(
+                                                "Invalid request",
+                                            )));
                                             *resp.status_mut() = StatusCode::BAD_REQUEST;
                                             return Ok(resp);
                                         }
@@ -253,7 +262,9 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
                                         .await
                                         {
                                             Ok(file_data) => {
-                                                let mut resp = Response::new(Full::new(Bytes::from(file_data)));
+                                                let mut resp = Response::new(Full::new(
+                                                    Bytes::from(file_data),
+                                                ));
                                                 resp.headers_mut().insert(
                                                     hyper::header::CONTENT_TYPE,
                                                     hyper::header::HeaderValue::from_static(
@@ -275,11 +286,12 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
                                                 resp
                                             }
                                             Err((status_code, message)) => {
-                                                let mut resp = Response::new(Full::new(Bytes::from(message)));
-                                                *resp.status_mut() =
-                                                    StatusCode::from_u16(status_code).unwrap_or(
-                                                        StatusCode::INTERNAL_SERVER_ERROR,
-                                                    );
+                                                let mut resp =
+                                                    Response::new(Full::new(Bytes::from(message)));
+                                                *resp.status_mut() = StatusCode::from_u16(
+                                                    status_code,
+                                                )
+                                                .unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
                                                 resp
                                             }
                                         }

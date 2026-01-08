@@ -176,12 +176,7 @@ fn convert_volume_mount(
         compose_spec::service::volumes::Mount::Tmpfs(tmpfs) => {
             Ok(k8s_openapi::api::core::v1::VolumeMount {
                 name: slugify!(&tmpfs.common.target.as_inner().to_string_lossy()),
-                mount_path: tmpfs
-                    .common
-                    .target
-                    .as_inner()
-                    .to_string_lossy()
-                    .to_string(),
+                mount_path: tmpfs.common.target.as_inner().to_string_lossy().to_string(),
                 ..Default::default()
             })
         }

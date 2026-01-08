@@ -21,7 +21,7 @@ impl AsDeployment for compose_spec::Service {
         working_dir: &Path,
     ) -> Result<k8s_openapi::api::apps::v1::Deployment, ComposeServiceError> {
         validation::ensure_only_supported(self)?;
-        
+
         let working_dir = working_dir.canonicalize().map_err(|e| {
             ComposeServiceError::Other(format!(
                 "Failed to canonicalize working directory {}: {}",
@@ -76,9 +76,7 @@ impl AsDeployment for compose_spec::Service {
     }
 }
 
-fn calculate_replicas(
-    svc: &compose_spec::Service,
-) -> Result<Option<i32>, ComposeServiceError> {
+fn calculate_replicas(svc: &compose_spec::Service) -> Result<Option<i32>, ComposeServiceError> {
     let mut replicas = svc.scale.map(|s| s as i32);
     if let Some(deploy_conf) = &svc.deploy {
         if let Some(deploy_replicas) = deploy_conf.replicas {
@@ -167,7 +165,10 @@ fn build_pod_spec(
         subdomain: svc.domain_name.as_ref().map(|d| d.to_string()),
         host_aliases: build_host_aliases(svc),
         dns_config: build_dns_config(svc),
-        termination_grace_period_seconds: svc.stop_grace_period.as_ref().map(|d| d.as_secs() as i64),
+        termination_grace_period_seconds: svc
+            .stop_grace_period
+            .as_ref()
+            .map(|d| d.as_secs() as i64),
         volumes: Some(volumes),
         os: Some(k8s_openapi::api::core::v1::PodOS {
             // Otherwise, stop_signal can not be used

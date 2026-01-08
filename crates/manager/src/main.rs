@@ -12,6 +12,7 @@ mod grpc;
 mod instances;
 mod js;
 mod repo;
+mod ssh;
 mod utils;
 
 #[tokio::main]

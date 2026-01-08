@@ -64,7 +64,12 @@ impl super::AsIngress for compose_spec::Service {
         exposed_domain: &str,
     ) -> Result<Option<k8s_crds_traefik::IngressRouteTCP>, ComposeServiceError> {
         let external_ports = compose_spec::service::ports::into_long_iter(self.ports.clone())
-            .filter(|port| port.protocol.as_ref().is_none_or(|p| p.is_tcp()))
+            .filter(|port| {
+                port.protocol.as_ref().is_none_or(|p| p.is_tcp())
+                    && port.app_protocol.as_ref().is_none_or(|app_proto| {
+                        app_proto.to_uppercase() != "HTTP" && app_proto.to_uppercase() != "SSH"
+                    })
+            })
             .collect::<Vec<Port>>();
         if external_ports.is_empty() {
             return Ok(None);

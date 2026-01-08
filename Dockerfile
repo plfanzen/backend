@@ -27,3 +27,11 @@ COPY --from=builder /plfanzen/target/release/plfanzen-api /usr/local/bin/plfanze
 EXPOSE 3000
 
 CMD ["plfanzen-api"]
+
+FROM debian:trixie-slim AS ssh-gateway
+
+COPY --from=builder /plfanzen/target/release/ssh-gateway /usr/local/bin/ssh-gateway
+
+EXPOSE 2222
+
+CMD ["ssh-gateway"]

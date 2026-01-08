@@ -44,13 +44,14 @@ pub async fn load_challenge_from_dir(
             e
         )
     })?;
-    let mut compose: compose_spec::Compose = serde_yaml::from_str(&compose_content).map_err(|e| {
-        format!(
-            "Failed to parse docker-compose.yml from {}: {}",
-            compose_path.to_string_lossy(),
-            e
-        )
-    })?;
+    let mut compose: compose_spec::Compose =
+        serde_yaml::from_str(&compose_content).map_err(|e| {
+            format!(
+                "Failed to parse docker-compose.yml from {}: {}",
+                compose_path.to_string_lossy(),
+                e
+            )
+        })?;
     let metadata = serde_yaml::from_value(
         compose
             .extensions

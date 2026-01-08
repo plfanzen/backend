@@ -32,6 +32,12 @@ fn get_connection_details(
     let mut connection_info = vec![];
     for (svc_id, svc) in &challenge.services {
         for exposed_port in compose_spec::service::ports::into_long_iter(svc.ports.clone()) {
+            let uses_ssh_gateway = exposed_port
+                .app_protocol
+                .as_ref()
+                .is_some_and(|p| p.to_lowercase() == "ssh")
+                && exposed_port.extensions.contains_key("x-username")
+                && exposed_port.extensions.contains_key("x-password");
             connection_info.push(ConnectionInfo {
                 host: format!(
                     "{}-{}-challenge-{}-instance-{}.{}",
@@ -46,17 +52,41 @@ fn get_connection_details(
                 ),
                 port: 443,
                 protocol: if exposed_port.protocol.as_ref().is_none_or(|p| p.is_tcp()) {
-                    Protocol::Tcp as i32
+                    match exposed_port.app_protocol {
+                        Some(proto) if proto.to_lowercase() == "http".to_string() => {
+                            Protocol::Https as i32
+                        }
+                        Some(proto) if proto.to_lowercase() == "ssh".to_string() => {
+                            Protocol::Ssh as i32
+                        }
+                        _ => Protocol::Tcp as i32,
+                    }
                 } else if exposed_port.protocol.as_ref().is_some_and(|p| p.is_udp()) {
                     Protocol::Udp as i32
                 } else {
                     continue;
                 },
+                ssh_username: if uses_ssh_gateway {
+                    Some(format!(
+                        "{}-{}-challenge-{}-instance-{}",
+                        svc_id,
+                        exposed_port
+                            .published
+                            .map(|r| r.start())
+                            .unwrap_or(exposed_port.target),
+                        challenge_id,
+                        instance_id,
+                    ))
+                } else {
+                    None
+                },
+                ssh_password: None,
             });
         }
     }
     connection_info
 }
+
 #[tonic::async_trait]
 impl ChallengesService for ChallengeManager {
     /// ListChallenges returns a list of all available challenges.

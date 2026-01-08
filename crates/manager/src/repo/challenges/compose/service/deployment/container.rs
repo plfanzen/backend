@@ -22,12 +22,13 @@ pub fn build_container_spec(
             .working_dir
             .as_ref()
             .map(|p| p.as_path().to_string_lossy().to_string()),
-        lifecycle: svc.stop_signal.as_ref().map(|signal| {
-            k8s_openapi::api::core::v1::Lifecycle {
+        lifecycle: svc
+            .stop_signal
+            .as_ref()
+            .map(|signal| k8s_openapi::api::core::v1::Lifecycle {
                 stop_signal: Some(signal.clone()),
                 ..Default::default()
-            }
-        }),
+            }),
         resources: build_resource_requirements(svc),
         ports: build_container_ports(svc),
         security_context,
@@ -90,7 +91,11 @@ fn build_resource_requirements(
             } else {
                 Some(requests)
             },
-            limits: if limits.is_empty() { None } else { Some(limits) },
+            limits: if limits.is_empty() {
+                None
+            } else {
+                Some(limits)
+            },
             ..Default::default()
         })
     }

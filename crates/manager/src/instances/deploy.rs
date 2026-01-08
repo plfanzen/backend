@@ -10,7 +10,7 @@ use kube::{Api, Client};
 
 use crate::repo::challenges::{
     compose::{
-        service::{AsDeployment, AsExternalService, AsIngress, AsService, ComposeServiceError},
+        service::{AsDeployment, AsExternalService, AsIngress, AsService, AsSshGateway, ComposeServiceError},
         volume::{AsPvc, default_size_pvc, get_pvc},
     },
     loader::Challenge,
@@ -29,10 +29,10 @@ pub async fn deploy_challenge(
         .values()
         .any(|svc| svc.requires_data_pvc());
 
-    let (deployments, svcs, ingressroutes, ingressroutestcp): (Vec<_>, Vec<_>, Vec<_>, Vec<_>) =
+    let (deployments, svcs, ingressroutes, ingressroutestcp, sshgateways): (Vec<_>, Vec<_>, Vec<_>, Vec<_>, Vec<_>) =
         challenge.compose.services.into_iter().try_fold(
-            (Vec::new(), Vec::new(), Vec::new(), Vec::new()),
-            |(mut deployments, mut svcs, mut ingressroutes, mut ingressroutestcp),
+            (Vec::new(), Vec::new(), Vec::new(), Vec::new(), Vec::new()),
+            |(mut deployments, mut svcs, mut ingressroutes, mut ingressroutestcp, mut sshgateways),
              (svc_id, svc)|
              -> Result<_, ComposeServiceError> {
                 deployments.push(svc.as_deployment(svc_id.to_string(), working_dir));
@@ -50,7 +50,11 @@ pub async fn deploy_challenge(
                 {
                     ingressroutestcp.push(irtcp);
                 }
-                Ok((deployments, svcs, ingressroutes, ingressroutestcp))
+                sshgateways.extend(svc.as_ssh_gateways(
+                    svc_id.to_string(),
+                    None,
+                )?);
+                Ok((deployments, svcs, ingressroutes, ingressroutestcp, sshgateways))
             },
         )?;
 
@@ -108,6 +112,14 @@ pub async fn deploy_challenge(
         Api::namespaced(ingressroutetcp_api.into_client(), challenge_ns);
     for pvc in pvcs {
         pvc_api.create(&Default::default(), &pvc).await?;
+    }
+    
+    let sshgateway_api: Api<crate::ssh::SSHGateway> =
+        Api::namespaced(pvc_api.into_client(), challenge_ns);
+    for sshgateway in sshgateways {
+        sshgateway_api
+            .create(&Default::default(), &sshgateway)
+            .await?;
     }
 
     Ok(())

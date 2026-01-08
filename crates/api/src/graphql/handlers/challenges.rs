@@ -2,11 +2,11 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+pub mod export;
 pub mod flags;
 pub mod instances;
 pub mod invalid_submissions;
 pub mod solves;
-pub mod export;
 
 use std::collections::HashMap;
 
@@ -188,7 +188,7 @@ impl CtfChallengeMetadata {
 
         Ok(solve_count > 0)
     }
-    
+
     /// Whether the challenge source code can be exported by the user
     fn can_export(&self) -> bool {
         self.can_export

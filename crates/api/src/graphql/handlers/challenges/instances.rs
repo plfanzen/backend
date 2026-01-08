@@ -20,6 +20,8 @@ pub struct CtfChallengeConnectionInfo {
     pub host: String,
     pub port: i32,
     pub protocol: ConnectionProtocol,
+    pub ssh_username: Option<String>,
+    pub ssh_password: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, GraphQLEnum)]
@@ -112,6 +114,8 @@ pub async fn get_challenge_instance_status(
                         Protocol::Ssh => ConnectionProtocol::Ssh,
                         Protocol::Tcp => ConnectionProtocol::Tcp,
                     },
+                    ssh_username: ci.ssh_username,
+                    ssh_password: ci.ssh_password,
                 })
             })
             .collect(),

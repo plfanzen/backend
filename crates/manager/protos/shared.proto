@@ -33,4 +33,6 @@ message ConnectionInfo {
     string host = 1;
     uint32 port = 2;
     Protocol protocol = 3;
+    optional string ssh_username = 4;
+    optional string ssh_password = 5;
 }

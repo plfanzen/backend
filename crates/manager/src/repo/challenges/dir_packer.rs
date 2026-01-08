@@ -1,7 +1,7 @@
+use flate2::write::GzEncoder;
 use ignore::WalkBuilder;
 use std::path::Path;
 use tar::Builder;
-use flate2::write::GzEncoder;
 
 use crate::repo::challenges::metadata::CtfChallengeMetadata;
 
@@ -40,7 +40,8 @@ pub fn safe_pack_challenge(source_dir: &Path) -> Result<Vec<u8>, Box<dyn std::er
                     let mut compose: compose_spec::Compose = serde_yaml::from_str(&file_contents)?;
                     let metadata = compose.extensions.get_mut("x-ctf-metadata");
                     if let Some(md) = metadata {
-                        let mut metadata: CtfChallengeMetadata = serde_yaml::from_value(md.clone())?;
+                        let mut metadata: CtfChallengeMetadata =
+                            serde_yaml::from_value(md.clone())?;
                         metadata.flag = None;
                         metadata.flag_validation_fn = None;
                         *md = serde_yaml::to_value(metadata)?;
@@ -51,7 +52,10 @@ pub fn safe_pack_challenge(source_dir: &Path) -> Result<Vec<u8>, Box<dyn std::er
                     header.set_mode(0o644);
                     header.set_cksum();
                     header.set_mtime(
-                        std::fs::metadata(path)?.modified()?.duration_since(std::time::UNIX_EPOCH)?.as_secs(),
+                        std::fs::metadata(path)?
+                            .modified()?
+                            .duration_since(std::time::UNIX_EPOCH)?
+                            .as_secs(),
                     );
                     header.set_uid(1000);
                     header.set_gid(1000);

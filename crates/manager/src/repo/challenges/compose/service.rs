@@ -9,6 +9,7 @@ use thiserror::Error;
 mod deployment;
 mod ingress;
 mod service;
+mod ssh;
 
 #[derive(Error, Debug)]
 pub enum ComposeServiceError {
@@ -79,4 +80,12 @@ pub trait AsIngress {
         full_instance_name: &str,
         exposed_domain: &str,
     ) -> Result<Option<k8s_crds_traefik::IngressRouteTCP>, ComposeServiceError>;
+}
+
+pub trait AsSshGateway {
+    fn as_ssh_gateways(
+        &self,
+        id: String,
+        ssh_password: Option<String>,
+    ) -> Result<Vec<crate::ssh::SSHGateway>, ComposeServiceError>;
 }

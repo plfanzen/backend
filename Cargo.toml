@@ -3,6 +3,7 @@ resolver = "3"
 members = [
     "crates/manager",
     "crates/api",
+    "crates/ssh-gateway",
 ]
 
 [workspace.package]

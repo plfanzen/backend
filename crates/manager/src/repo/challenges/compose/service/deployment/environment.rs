@@ -44,7 +44,7 @@ fn process_env_files(
                 file.path.to_string_lossy().to_string(),
             ));
         }
-        
+
         let abs_path = working_dir.join(file.path);
         match abs_path.canonicalize() {
             Err(e) => {
@@ -64,12 +64,12 @@ fn process_env_files(
                         canonical_path.to_string_lossy().to_string(),
                     ));
                 }
-                
+
                 parse_env_file(env, &canonical_path, file.required)?;
             }
         }
     }
-    
+
     Ok(())
 }
 
@@ -87,10 +87,7 @@ fn parse_env_file(
                     match e {
                         dotenvy::Error::Io(io_err) => io_err,
                         // Should be unreachable, but handle just in case
-                        other => std::io::Error::new(
-                            std::io::ErrorKind::Other,
-                            other.to_string(),
-                        ),
+                        other => std::io::Error::new(std::io::ErrorKind::Other, other.to_string()),
                     },
                 ));
             } else {
@@ -98,7 +95,7 @@ fn parse_env_file(
             }
         }
     };
-    
+
     for item in parsed {
         match item {
             Ok((key, value)) => {
@@ -115,7 +112,7 @@ fn parse_env_file(
             }
         }
     }
-    
+
     Ok(())
 }
 

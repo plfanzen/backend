@@ -6,7 +6,9 @@ pub async fn export_challenge(
     ctx: Context,
     challenge_id: String,
 ) -> Result<Vec<u8>, (u16, String)> {
-    let auth = ctx.require_authentication().map_err(|e| (401, format!("Authentication required: {:?}", e)))?;
+    let auth = ctx
+        .require_authentication()
+        .map_err(|e| (401, format!("Authentication required: {:?}", e)))?;
     let actor = auth.actor();
 
     let mut challenges_client = ctx.challenges_client();
@@ -46,7 +48,9 @@ pub async fn retrieve_file(
     challenge_id: String,
     filename: String,
 ) -> Result<Vec<u8>, (u16, String)> {
-    let auth = ctx.require_authentication().map_err(|e| (401, format!("Authentication required: {:?}", e)))?;
+    let auth = ctx
+        .require_authentication()
+        .map_err(|e| (401, format!("Authentication required: {:?}", e)))?;
     let actor = auth.actor();
 
     let mut challenges_client = ctx.challenges_client();

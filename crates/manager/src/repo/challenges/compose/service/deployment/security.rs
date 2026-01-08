@@ -21,11 +21,7 @@ pub fn build_pod_security_context(
         }
     }
 
-    if has_context {
-        Some(pod_sec_ctx)
-    } else {
-        None
-    }
+    if has_context { Some(pod_sec_ctx) } else { None }
 }
 
 fn parse_supplemental_groups(
