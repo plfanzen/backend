@@ -68,7 +68,7 @@ fn get_connection_details(
                 },
                 ssh_username: if uses_ssh_gateway {
                     Some(format!(
-                        "{}-{}-challenge-{}-instance-{}",
+                        "{}-{}:challenge-{}-instance-{}",
                         svc_id,
                         exposed_port
                             .published

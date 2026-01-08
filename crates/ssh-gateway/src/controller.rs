@@ -20,6 +20,11 @@ struct Data {
 async fn reconcile(object: Arc<SSHGateway>, ctx: Arc<Data>) -> Result<Action, Error> {
     let backend_registry = &ctx.backend_registry;
     let spec = &object.spec;
+    let Some(ref name) = object.metadata.name else {
+        // This is always named, so this should be unreachable, but let's just return a requeue
+        tracing::error!("Failed to get name!");
+        return Ok(Action::requeue(Duration::from_secs(60)));
+    };
     let Some(ref ns) = object.metadata.namespace else {
         // This is always namespaced, so this should be unreachable, but let's just return a requeue
         tracing::error!("Failed to get namespace!");
@@ -31,7 +36,7 @@ async fn reconcile(object: Arc<SSHGateway>, ctx: Arc<Data>) -> Result<Action, Er
         // TODO: Backoff
         return Ok(Action::requeue(Duration::from_secs(10)));
     }
-    let backend_name = format!("{}-{}", spec.backend_service, ns);
+    let backend_name = format!("{}:{}", name, ns);
     if object.metadata.deletion_timestamp.is_some() {
         backend_registry.remove_backend(&backend_name).await;
         return Ok(Action::await_change());

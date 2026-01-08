@@ -111,7 +111,7 @@ impl Handler for GatewayHandler {
     }
 
     async fn authentication_banner(&mut self) -> Result<Option<String>, Self::Error> {
-        Ok(Some("Plfanzen SSH Gateway - Connecting you to your backend server.\n\nPlease note: Certain SSH features, like remote port forwarding, are not supported and may lead to connection issues.\n".to_string()))
+        Ok(Some("Plfanzen SSH Gateway - Connecting you to your backend server.\n\nPlease note: Certain SSH features, like remote port forwarding, are not supported and may lead to connection issues.\nPlease wait 3 seconds for the connection to proceed.\n\n".to_string()))
     }
 
     async fn pty_request(

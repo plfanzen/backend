@@ -41,7 +41,7 @@ async fn main() -> anyhow::Result<()> {
 
     let mut config = russh::server::Config::default();
     config.inactivity_timeout = Some(std::time::Duration::from_secs(600));
-    config.auth_rejection_time = std::time::Duration::from_millis(500);
+    config.auth_rejection_time = std::time::Duration::from_secs(3);
     config.keys = vec![private_key];
     let config = Arc::new(config);
 
