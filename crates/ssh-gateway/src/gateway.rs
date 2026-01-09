@@ -96,6 +96,10 @@ impl Handler for GatewayHandler {
             tracing::info!("Matched backend for user: {}", user);
         } else {
             tracing::warn!("No backend found for user: {}", user);
+                return Ok(Auth::Reject {
+                    partial_success: false,
+                    proceed_with_methods: None,
+                });
         }
 
         Ok(Auth::Accept)
