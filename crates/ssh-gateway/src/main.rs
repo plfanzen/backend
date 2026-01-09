@@ -15,27 +15,24 @@ use crate::cr::SSHGateway;
 async fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt::init();
 
-    let key_file = std::env::var("PRIVATE_KEY_FILE")
-        .unwrap_or_else(|_| "/data/ssh_host_key".to_string());
-    
+    let key_file =
+        std::env::var("PRIVATE_KEY_FILE").unwrap_or_else(|_| "/data/ssh_host_key".to_string());
+
     let private_key = if std::path::Path::new(&key_file).exists() {
         tracing::info!("Loading private key from {}", key_file);
         let key_data = std::fs::read_to_string(&key_file)?;
         russh::keys::decode_secret_key(&key_data, None)?
     } else {
         tracing::info!("Generating new private key and saving to {}", key_file);
-        let key = russh::keys::PrivateKey::random(
-            &mut OsRng,
-            russh::keys::Algorithm::Ed25519,
-        )?;
-        
+        let key = russh::keys::PrivateKey::random(&mut OsRng, russh::keys::Algorithm::Ed25519)?;
+
         if let Some(parent) = std::path::Path::new(&key_file).parent() {
             std::fs::create_dir_all(parent)?;
         }
-        
+
         let key_string = key.to_openssh(LineEnding::LF)?;
         std::fs::write(&key_file, key_string)?;
-        
+
         key
     };
 
@@ -54,7 +51,7 @@ async fn main() -> anyhow::Result<()> {
     let registry = gateway.backend_registry();
 
     let client = kube::Client::try_default().await?;
-    
+
     let cr_api: Api<CustomResourceDefinition> = Api::all(client.clone());
     let cr = SSHGateway::crd();
     let cr_name = cr.metadata.name.as_ref().unwrap();

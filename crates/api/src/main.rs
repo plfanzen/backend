@@ -15,8 +15,8 @@ use juniper_hyper::{graphiql, graphql, playground};
 use slugify::slugify;
 use tokio::net::TcpListener;
 
-use plfanzen_api::graphql::{self, AuthenticatedUser, Context, Mutation, Query, Schema};
 use plfanzen_api::db;
+use plfanzen_api::graphql::{self, AuthenticatedUser, Context, Mutation, Query, Schema};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {

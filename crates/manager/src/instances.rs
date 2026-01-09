@@ -138,10 +138,7 @@ pub async fn prepare_instance(
     }
 }
 
-pub fn full_instance_ns(
-    challenge_id: &str,
-    instance_id: &str,
-) -> String {
+pub fn full_instance_ns(challenge_id: &str, instance_id: &str) -> String {
     format!("challenge-{}-instance-{}", challenge_id, instance_id)
 }
 
