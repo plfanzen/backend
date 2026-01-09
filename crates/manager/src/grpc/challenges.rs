@@ -60,16 +60,20 @@ fn get_connection_details(
                 continue;
             }
             connection_info.push(ConnectionInfo {
-                host: format!(
-                    "{}-{}-{}.{}",
-                    svc_id,
-                    exposed_port
-                        .published
-                        .map(|r| r.start())
-                        .unwrap_or(exposed_port.target),
-                    full_instance_ns(challenge_id, instance_id),
+                host: if uses_ssh_gateway {
                     std::env::var("EXPOSED_DOMAIN").unwrap_or("localhost".to_string())
-                ),
+                } else {
+                    format!(
+                        "{}-{}-{}.{}",
+                        svc_id,
+                        exposed_port
+                            .published
+                            .map(|r| r.start())
+                            .unwrap_or(exposed_port.target),
+                        full_instance_ns(challenge_id, instance_id),
+                        std::env::var("EXPOSED_DOMAIN").unwrap_or("localhost".to_string())
+                    )
+                },
                 port,
                 protocol,
                 ssh_username: if uses_ssh_gateway {
