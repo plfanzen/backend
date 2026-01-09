@@ -61,10 +61,7 @@ impl super::AsExternalService for compose_spec::Service {
                             Ok(k8s_openapi::api::core::v1::ServicePort {
                                 name: port.name,
                                 // For now, we use a simple implementation of ranges by only taking the start of the published port range
-                                port: port
-                                    .published
-                                    .map(|r| r.start())
-                                    .unwrap_or(port.target as u16)
+                                port: port.published.map(|r| r.start()).unwrap_or(port.target)
                                     as i32,
                                 target_port: Some(
                                     k8s_openapi::apimachinery::pkg::util::intstr::IntOrString::Int(

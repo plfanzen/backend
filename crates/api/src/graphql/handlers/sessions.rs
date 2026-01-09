@@ -36,7 +36,7 @@ pub async fn create_session(
     let session_token = uuid::Uuid::now_v7().to_string();
     let access_token = generate_jwt(
         &JwtPayload::new_with_duration(
-            uid.clone(),
+            uid,
             vec!["plfanzen".to_string()],
             AuthJwtPayload {
                 role,
@@ -56,8 +56,8 @@ pub async fn create_session(
             ip_address: Some(match ctx.get_ip() {
                 // These functions only return an Err() if prefix_len is too long, but the ones here are harcoded
                 // Unless the IP standard changes, this will not panic
-                std::net::IpAddr::V4(_) => ipnet::IpNet::new(ctx.get_ip().clone(), 32).unwrap(),
-                std::net::IpAddr::V6(_) => ipnet::IpNet::new(ctx.get_ip().clone(), 128).unwrap(),
+                std::net::IpAddr::V4(_) => ipnet::IpNet::new(*ctx.get_ip(), 32).unwrap(),
+                std::net::IpAddr::V6(_) => ipnet::IpNet::new(*ctx.get_ip(), 128).unwrap(),
             }),
             session_token: session_token.clone(),
             user_id: Some(uid),
@@ -121,7 +121,7 @@ pub async fn refresh_session(
     let new_session_token = uuid::Uuid::now_v7();
     let access_token = generate_jwt(
         &JwtPayload::new_with_duration(
-            refresh_token.sub.clone(),
+            refresh_token.sub,
             vec!["plfanzen".to_string()],
             AuthJwtPayload {
                 role: user.role,
@@ -131,7 +131,7 @@ pub async fn refresh_session(
             },
             Duration::from_mins(10),
         ),
-        &ctx.get_signing_key(),
+        ctx.get_signing_key(),
     )?;
     let mut con = ctx.get_db_conn().await;
     let new_session = diesel::update(
@@ -145,8 +145,8 @@ pub async fn refresh_session(
         crate::db::schema::sessions::ip_address.eq(Some(match ctx.get_ip() {
             // These functions only return an Err() if prefix_len is too long, but the ones here are harcoded
             // Unless the IP standard changes, this will not panic
-            std::net::IpAddr::V4(_) => ipnet::IpNet::new(ctx.get_ip().clone(), 32).unwrap(),
-            std::net::IpAddr::V6(_) => ipnet::IpNet::new(ctx.get_ip().clone(), 128).unwrap(),
+            std::net::IpAddr::V4(_) => ipnet::IpNet::new(*ctx.get_ip(), 32).unwrap(),
+            std::net::IpAddr::V6(_) => ipnet::IpNet::new(*ctx.get_ip(), 128).unwrap(),
         })),
     ))
     .get_result::<crate::db::models::Session>(&mut con)
@@ -161,7 +161,7 @@ pub async fn refresh_session(
             },
             new_session.expires_at.timestamp() as usize,
         ),
-        &ctx.get_signing_key(),
+        ctx.get_signing_key(),
     )?;
     Ok(SessionCredentials {
         access_token,

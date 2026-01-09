@@ -87,7 +87,7 @@ fn parse_env_file(
                     match e {
                         dotenvy::Error::Io(io_err) => io_err,
                         // Should be unreachable, but handle just in case
-                        other => std::io::Error::new(std::io::ErrorKind::Other, other.to_string()),
+                        other => std::io::Error::other(other.to_string()),
                     },
                 ));
             } else {

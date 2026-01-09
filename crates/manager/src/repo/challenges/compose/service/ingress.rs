@@ -35,11 +35,8 @@ impl super::AsIngress for compose_spec::Service {
                     .map(|port| k8s_crds_traefik::ingressroutes::IngressRouteRoutes {
                         kind: Some(IngressRouteRoutesKind::Rule),
                         r#match: format!(
-                            "Host(`{}`)",
-                            format!(
-                                "{}-{}-{}.{}",
-                                id, port.target, full_instance_name, exposed_domain
-                            )
+                            "Host(`{}-{}-{}.{}`)",
+                            id, port.target, full_instance_name, exposed_domain
                         ),
                         services: Some(vec![
                             k8s_crds_traefik::ingressroutes::IngressRouteRoutesServices {

@@ -39,7 +39,6 @@ pub enum UserRole {
 #[derive(Queryable, Selectable, Identifiable, Debug)]
 #[diesel(table_name = users)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
-
 pub struct User {
     pub id: Uuid,
     pub username: String,

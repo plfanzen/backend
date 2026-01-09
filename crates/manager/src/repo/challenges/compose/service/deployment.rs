@@ -78,15 +78,15 @@ impl AsDeployment for compose_spec::Service {
 
 fn calculate_replicas(svc: &compose_spec::Service) -> Result<Option<i32>, ComposeServiceError> {
     let mut replicas = svc.scale.map(|s| s as i32);
-    if let Some(deploy_conf) = &svc.deploy {
-        if let Some(deploy_replicas) = deploy_conf.replicas {
-            if replicas.is_some_and(|r| r != (deploy_replicas as i32)) {
-                return Err(ComposeServiceError::Other(
-                    "Conflict between top-level scale and deploy.replicas".to_string(),
-                ));
-            }
-            replicas = Some(deploy_replicas as i32);
+    if let Some(deploy_conf) = &svc.deploy
+        && let Some(deploy_replicas) = deploy_conf.replicas
+    {
+        if replicas.is_some_and(|r| r != (deploy_replicas as i32)) {
+            return Err(ComposeServiceError::Other(
+                "Conflict between top-level scale and deploy.replicas".to_string(),
+            ));
         }
+        replicas = Some(deploy_replicas as i32);
     }
     Ok(replicas)
 }
@@ -173,7 +173,6 @@ fn build_pod_spec(
         os: Some(k8s_openapi::api::core::v1::PodOS {
             // Otherwise, stop_signal can not be used
             name: "linux".to_string(),
-            ..Default::default()
         }),
         init_containers: container::build_init_containers(svc),
         enable_service_links: Some(false),
@@ -233,7 +232,6 @@ fn build_dns_config(
                         .collect(),
                 )
             },
-            ..Default::default()
         })
     }
 }

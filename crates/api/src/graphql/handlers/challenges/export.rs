@@ -26,20 +26,18 @@ pub async fn export_challenge(
             let response = response.into_inner();
             Ok(response.challenge_archive)
         }
-        Err(status) => {
-            return Err((
-                if status.code() == Code::PermissionDenied {
-                    403
-                } else if status.code() == Code::NotFound {
-                    404
-                } else if status.code() == Code::InvalidArgument {
-                    400
-                } else {
-                    500
-                },
-                format!("Failed to export challenge: {}", status.message()),
-            ));
-        }
+        Err(status) => Err((
+            if status.code() == Code::PermissionDenied {
+                403
+            } else if status.code() == Code::NotFound {
+                404
+            } else if status.code() == Code::InvalidArgument {
+                400
+            } else {
+                500
+            },
+            format!("Failed to export challenge: {}", status.message()),
+        )),
     }
 }
 
@@ -69,19 +67,17 @@ pub async fn retrieve_file(
             let response = response.into_inner();
             Ok(response.file_content)
         }
-        Err(status) => {
-            return Err((
-                if status.code() == Code::PermissionDenied {
-                    403
-                } else if status.code() == Code::NotFound {
-                    404
-                } else if status.code() == Code::InvalidArgument {
-                    400
-                } else {
-                    500
-                },
-                format!("Failed to retrieve file: {}", status.message()),
-            ));
-        }
+        Err(status) => Err((
+            if status.code() == Code::PermissionDenied {
+                403
+            } else if status.code() == Code::NotFound {
+                404
+            } else if status.code() == Code::InvalidArgument {
+                400
+            } else {
+                500
+            },
+            format!("Failed to retrieve file: {}", status.message()),
+        )),
     }
 }

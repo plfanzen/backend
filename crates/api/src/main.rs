@@ -104,22 +104,19 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
                             std::net::IpAddr::V6(ipv6) => ipv6.is_unique_local(),
                         };
 
-                        if is_private {
-                            if let Some(xff) = req.headers().get("x-forwarded-for") {
-                                if let Ok(xff_str) = xff.to_str() {
-                                    for ip_str in xff_str.split(',') {
-                                        if let Ok(ip) = ip_str.trim().parse::<std::net::IpAddr>() {
-                                            let is_private = match ip {
-                                                std::net::IpAddr::V4(ipv4) => ipv4.is_private(),
-                                                std::net::IpAddr::V6(ipv6) => {
-                                                    ipv6.is_unique_local()
-                                                }
-                                            };
-                                            if !is_private {
-                                                remote_ip = ip;
-                                                break;
-                                            }
-                                        }
+                        if is_private
+                            && let Some(xff) = req.headers().get("x-forwarded-for")
+                            && let Ok(xff_str) = xff.to_str()
+                        {
+                            for ip_str in xff_str.split(',') {
+                                if let Ok(ip) = ip_str.trim().parse::<std::net::IpAddr>() {
+                                    let is_private = match ip {
+                                        std::net::IpAddr::V4(ipv4) => ipv4.is_private(),
+                                        std::net::IpAddr::V6(ipv6) => ipv6.is_unique_local(),
+                                    };
+                                    if !is_private {
+                                        remote_ip = ip;
+                                        break;
                                     }
                                 }
                             }

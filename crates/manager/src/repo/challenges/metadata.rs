@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::sync::{Arc, Mutex};
+use std::{rc::Rc, sync::Mutex};
 
 use boa_engine::{
     JsError, JsNativeError, JsValue, NativeFunction, Source, js_string, js_value,
@@ -71,7 +71,7 @@ impl CtfChallengeMetadata {
             FlagValidator::String { flag } => Ok(flag == input_flag),
             FlagValidator::JsFunction { flag_validation_fn } => {
                 let mut engine = create_boa_context();
-                let flag_fn: Arc<Mutex<Option<JsFunction>>> = Arc::new(Mutex::new(None));
+                let flag_fn: Rc<Mutex<Option<JsFunction>>> = Rc::new(Mutex::new(None));
                 let flag_fn_clone = flag_fn.clone();
                 engine
                     .register_global_builtin_callable(
@@ -79,7 +79,7 @@ impl CtfChallengeMetadata {
                         1,
                         unsafe {
                             NativeFunction::from_closure(move |_this, args, _ctx| {
-                                let fn_obj = args.get(0).and_then(|v| v.as_object());
+                                let fn_obj = args.first().and_then(|v| v.as_object());
                                 if let Some(obj) = fn_obj {
                                     let Some(func) = JsFunction::from_object(obj) else {
                                         return Err(JsError::from(JsNativeError::typ().with_message(

@@ -96,10 +96,10 @@ impl Handler for GatewayHandler {
             tracing::info!("Matched backend for user: {}", user);
         } else {
             tracing::warn!("No backend found for user: {}", user);
-                return Ok(Auth::Reject {
-                    partial_success: false,
-                    proceed_with_methods: None,
-                });
+            return Ok(Auth::Reject {
+                partial_success: false,
+                proceed_with_methods: None,
+            });
         }
 
         Ok(Auth::Accept)
@@ -268,7 +268,7 @@ impl Handler for GatewayHandler {
                     msg = backend_channel.wait() => {
                         match msg {
                             Some(russh::ChannelMsg::Data { data }) => {
-                                if let Err(e) = handle.data(channel_id, data.into()).await {
+                                if let Err(e) = handle.data(channel_id, data).await {
                                     tracing::error!("Failed to forward to client: {:?}", e);
                                     break;
                                 }
@@ -389,13 +389,13 @@ impl GatewayHandler {
                     msg = backend_channel.wait() => {
                         match msg {
                             Some(russh::ChannelMsg::Data { data }) => {
-                                if let Err(e) = handle.data(channel_id, data.into()).await {
+                                if let Err(e) = handle.data(channel_id, data).await {
                                     tracing::error!("Failed to send data to client: {:?}", e);
                                     break;
                                 }
                             }
                             Some(russh::ChannelMsg::ExtendedData { data, ext }) => {
-                                if let Err(e) = handle.extended_data(channel_id, ext, data.into()).await {
+                                if let Err(e) = handle.extended_data(channel_id, ext, data).await {
                                     tracing::error!("Failed to send extended data to client: {:?}", e);
                                     break;
                                 }

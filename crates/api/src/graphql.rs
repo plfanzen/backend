@@ -129,7 +129,7 @@ impl Context {
     }
 
     pub fn role(&self) -> Option<UserRole> {
-        self.user.as_ref().map(|u| u.role.clone())
+        self.user.as_ref().map(|u| u.role)
     }
 
     pub fn require_role_exact(&self, required_role: UserRole) -> juniper::FieldResult<()> {

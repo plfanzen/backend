@@ -34,8 +34,6 @@ macro_rules! ensure_false {
     };
 }
 
-pub(super) use {ensure_false, ensure_map_empty, ensure_option_none};
-
 pub fn ensure_only_supported(svc: &compose_spec::Service) -> Result<(), ComposeServiceError> {
     ensure_option_none!(svc.build);
     ensure_map_empty!(svc.storage_opt);

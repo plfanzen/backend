@@ -69,10 +69,8 @@ pub async fn get_instances(
             } else if is_instance_running(
                 kube_client,
                 challenge_id,
-                &name
-                    .strip_prefix(format!("challenge-{}-instance-", challenge_id).as_str())
-                    .unwrap_or(&name)
-                    .to_string(),
+                name.strip_prefix(format!("challenge-{}-instance-", challenge_id).as_str())
+                    .unwrap_or(&name),
             )
             .await
             {

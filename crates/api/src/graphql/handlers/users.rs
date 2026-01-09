@@ -130,7 +130,7 @@ pub async fn login_user(
                     user.username,
                     user.team_id,
                     team.map(|t| t.name),
-                    &signing_key,
+                    signing_key,
                 )
                 .await?;
                 Ok(session_credentials)

@@ -14,11 +14,11 @@ pub fn build_pod_security_context(
     let mut has_context = false;
 
     // Supplemental groups from group_add
-    if !svc.group_add.is_empty() {
-        if let Ok(groups) = parse_supplemental_groups(&svc.group_add) {
-            pod_sec_ctx.supplemental_groups = Some(groups);
-            has_context = true;
-        }
+    if !svc.group_add.is_empty()
+        && let Ok(groups) = parse_supplemental_groups(&svc.group_add)
+    {
+        pod_sec_ctx.supplemental_groups = Some(groups);
+        has_context = true;
     }
 
     if has_context { Some(pod_sec_ctx) } else { None }

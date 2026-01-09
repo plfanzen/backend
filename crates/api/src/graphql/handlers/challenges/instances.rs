@@ -90,7 +90,7 @@ pub async fn get_challenge_instance_status(
         .await?
         .into_inner();
 
-    if response.is_deployed == false {
+    if !response.is_deployed {
         return Ok(None);
     }
 

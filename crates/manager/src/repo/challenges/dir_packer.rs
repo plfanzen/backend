@@ -49,7 +49,7 @@ pub fn safe_pack_challenge(source_dir: &Path) -> Result<Vec<u8>, Box<dyn std::er
                     }
                     let new_compose_content = serde_yaml::to_string(&compose)?;
                     let mut header = tar::Header::new_gnu();
-                    header.set_size(new_compose_content.as_bytes().len() as u64);
+                    header.set_size(new_compose_content.len() as u64);
                     header.set_mode(0o644);
                     header.set_cksum();
                     header.set_mtime(

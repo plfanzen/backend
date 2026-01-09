@@ -38,11 +38,11 @@ fn get_connection_details(
             let protocol;
             if exposed_port.protocol.as_ref().is_none_or(|p| p.is_tcp()) {
                 match exposed_port.app_protocol {
-                    Some(proto) if proto.to_lowercase() == "http".to_string() => {
+                    Some(proto) if proto.to_lowercase() == "http" => {
                         protocol = Protocol::Https as i32;
                         port = 443;
                     }
-                    Some(proto) if proto.to_lowercase() == "ssh".to_string() => {
+                    Some(proto) if proto.to_lowercase() == "ssh" => {
                         protocol = Protocol::Ssh as i32;
                         port = 2222;
                         uses_ssh_gateway = exposed_port.extensions.contains_key("x-username")
@@ -119,10 +119,10 @@ impl ChallengesService for ChallengeManager {
         for (id, chall) in challenges {
             if request.require_release {
                 let now = chrono::Utc::now().timestamp() as u64;
-                if let Some(release_time) = chall.metadata.release_time {
-                    if now < release_time {
-                        continue;
-                    }
+                if let Some(release_time) = chall.metadata.release_time
+                    && now < release_time
+                {
+                    continue;
                 }
             }
             let solve_info = request.solved_challenges.get(&id);
@@ -147,7 +147,7 @@ impl ChallengesService for ChallengeManager {
                     ))
                 })?;
             out_challenges.push(Challenge {
-                id: id,
+                id,
                 name: chall.metadata.name,
                 description: chall.metadata.description_md,
                 release_timestamp: chall.metadata.release_time,
@@ -201,13 +201,13 @@ impl ChallengesService for ChallengeManager {
 
         if request.require_release {
             let now = chrono::Utc::now().timestamp() as u64;
-            if let Some(release_time) = challenge.metadata.release_time {
-                if now < release_time {
-                    return Err(tonic::Status::failed_precondition(format!(
-                        "Challenge {} has not been released yet",
-                        request.challenge_id
-                    )));
-                }
+            if let Some(release_time) = challenge.metadata.release_time
+                && now < release_time
+            {
+                return Err(tonic::Status::failed_precondition(format!(
+                    "Challenge {} has not been released yet",
+                    request.challenge_id
+                )));
             }
         }
 
@@ -239,7 +239,7 @@ impl ChallengesService for ChallengeManager {
 
         render_dir_recursively(
             &self.repo_dir.join("challs").join(&request.challenge_id),
-            &working_dir.path(),
+            working_dir.path(),
             &request.actor,
             false,
         )
@@ -255,7 +255,7 @@ impl ChallengesService for ChallengeManager {
             &full_instance_ns(&request.challenge_id, &instance_id),
             challenge,
             &std::env::var("EXPOSED_DOMAIN").unwrap_or("localhost".to_string()),
-            &working_dir.path(),
+            working_dir.path(),
             &request.actor,
             &instance_id,
         )
@@ -267,7 +267,7 @@ impl ChallengesService for ChallengeManager {
             ))
         })?;
         let response = StartChallengeInstanceResponse {
-            instance_id: instance_id,
+            instance_id,
             connection_info,
         };
         Ok(Response::new(response))
@@ -332,10 +332,7 @@ impl ChallengesService for ChallengeManager {
         }
         // For simplicity, we assume only one instance per challenge per actor
         let (instance_id, state) = instances.into_iter().next().unwrap();
-        let is_ready = match state {
-            InstanceState::Running => true,
-            _ => false,
-        };
+        let is_ready = state == InstanceState::Running;
         let challenge =
             load_challenge_from_repo(&self.repo_dir, &request.challenge_id, &request.actor, false)
                 .await
@@ -435,13 +432,13 @@ impl ChallengesService for ChallengeManager {
         }
         if request.require_release {
             let now = chrono::Utc::now().timestamp() as u64;
-            if let Some(release_time) = challenge.metadata.release_time {
-                if now < release_time {
-                    return Err(tonic::Status::permission_denied(format!(
-                        "Challenge {} has not been released yet",
-                        request.challenge_id
-                    )));
-                }
+            if let Some(release_time) = challenge.metadata.release_time
+                && now < release_time
+            {
+                return Err(tonic::Status::permission_denied(format!(
+                    "Challenge {} has not been released yet",
+                    request.challenge_id
+                )));
             }
         }
         let packed_data = challenge.export.ok_or_else(|| {
@@ -471,13 +468,13 @@ impl ChallengesService for ChallengeManager {
                 })?;
         if request.require_release {
             let now = chrono::Utc::now().timestamp() as u64;
-            if let Some(release_time) = challenge.metadata.release_time {
-                if now < release_time {
-                    return Err(tonic::Status::permission_denied(format!(
-                        "Challenge {} has not been released yet",
-                        request.challenge_id
-                    )));
-                }
+            if let Some(release_time) = challenge.metadata.release_time
+                && now < release_time
+            {
+                return Err(tonic::Status::permission_denied(format!(
+                    "Challenge {} has not been released yet",
+                    request.challenge_id
+                )));
             }
         }
         let working_dir = tempfile::tempdir().map_err(|e| {
@@ -488,7 +485,7 @@ impl ChallengesService for ChallengeManager {
         })?;
         render_dir_recursively(
             &self.repo_dir.join("challs").join(&request.challenge_id),
-            &working_dir.path(),
+            working_dir.path(),
             &request.actor,
             true,
         )

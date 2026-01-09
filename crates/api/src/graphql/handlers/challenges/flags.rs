@@ -75,7 +75,7 @@ pub async fn submit_flag(
         let new_invalid_submission = crate::db::models::NewInvalidSubmission {
             // This can be unwrap()ed safely because of the authentication check at the start of the function
             user_id: user.user_id,
-            challenge_id: challenge_id,
+            challenge_id,
             submitted_flag: flag,
             submitted_at: ts_now,
         };
