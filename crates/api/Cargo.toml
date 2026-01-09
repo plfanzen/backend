@@ -43,3 +43,11 @@ http-body-util = "0.1.3"
 
 [build-dependencies]
 tonic-prost-build = "0.14"
+
+[features]
+schema = ["juniper/schema-language"]
+
+[[bin]]
+name = "schema"
+path = "src/bin/schema.rs"
+required-features = ["schema"]

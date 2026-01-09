@@ -15,14 +15,8 @@ use juniper_hyper::{graphiql, graphql, playground};
 use slugify::slugify;
 use tokio::net::TcpListener;
 
-use crate::graphql::{AuthenticatedUser, Context, Mutation, Query, Schema};
-
-mod db;
-mod graphql;
-
-mod manager_api {
-    tonic::include_proto!("plfanzen_ctf");
-}
+use plfanzen_api::graphql::{self, AuthenticatedUser, Context, Mutation, Query, Schema};
+use plfanzen_api::db;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
