@@ -10,14 +10,16 @@ pub mod solves;
 
 use std::collections::HashMap;
 
-use diesel::prelude::*;
+use diesel::{dsl::sql, prelude::*, sql_types::BigInt};
 use diesel_async::RunQueryDsl;
 use juniper::graphql_object;
 
 use crate::{
     db::models::UserRole,
-    graphql::Context,
-    manager_api::{ListChallengesRequest, challenges_service_client::ChallengesServiceClient},
+    graphql::{Actor, Context},
+    manager_api::{
+        ListChallengesRequest, SolvedChallenge, challenges_service_client::ChallengesServiceClient,
+    },
 };
 
 #[derive(Debug, Clone)]
@@ -42,16 +44,81 @@ pub struct CtfChallengeMetadata {
     pub can_export: bool,
 }
 
+async fn get_actor_solves(
+    actor_details: Actor,
+    db_pool: diesel_async::pooled_connection::bb8::Pool<diesel_async::AsyncPgConnection>,
+) -> juniper::FieldResult<HashMap<String, SolvedChallenge>> {
+    let mut conn = db_pool.get().await?;
+
+    let actor_solves = match actor_details {
+        Actor::User { id: uid, .. } => {
+            use crate::db::schema::solves::dsl::*;
+            solves
+                .select((
+                    challenge_id,
+                    sql::<BigInt>(
+                        "row_number() OVER ( PARTITION BY user_id, challenge_id ORDER BY solved_at ASC )"
+                    ),
+                    sql::<BigInt>("COUNT(*) OVER ( PARTITION BY challenge_id )"),
+                ))
+                .filter(crate::db::schema::solves::user_id.eq(uid))
+                .order_by((solved_at.asc(), challenge_id.asc()))
+                .load::<(String, i64, i64)>(&mut conn).await?
+        }
+        Actor::Team { id: team_id, .. } => {
+            use crate::db::schema::solves::dsl::*;
+            solves
+                .inner_join(
+                    crate::db::schema::users::table.on(user_id.eq(crate::db::schema::users::id))
+                )
+                .left_join(
+                    crate::db::schema::teams::table.on(
+                        crate::db::schema::users::team_id.eq(
+                            crate::db::schema::teams::id.nullable()
+                        )
+                    )
+                )
+                .select((
+                    challenge_id,
+                    sql::<BigInt>(
+                        "row_number() OVER ( PARTITION BY user_id, challenge_id ORDER BY solved_at ASC )"
+                    ),
+                    sql::<BigInt>("COUNT(*) OVER ( PARTITION BY challenge_id )"),
+                ))
+                .filter(crate::db::schema::teams::id.eq(team_id))
+                .order_by((solved_at.asc(), challenge_id.asc()))
+                .load::<(String, i64, i64)>(&mut conn).await?
+        }
+    };
+
+    // Actor -
+    let mut result: HashMap<String, SolvedChallenge> = HashMap::new();
+    for (chall_id, solve_number, total_solves) in actor_solves {
+        result.insert(
+            chall_id.clone(),
+            SolvedChallenge {
+                actor_nth_solve: solve_number as i32,
+                total_solves: total_solves as i32,
+            },
+        );
+    }
+
+    Ok(result)
+}
+
 async fn get_challenges_for_actor_internal(
+    db_pool: &diesel_async::pooled_connection::bb8::Pool<diesel_async::AsyncPgConnection>,
     mut challs_client: ChallengesServiceClient<tonic::transport::Channel>,
     current_role: Option<UserRole>,
-    actor: String,
+    actor: Actor,
     total_competitors: i32,
 ) -> juniper::FieldResult<Vec<CtfChallengeMetadata>> {
+    let actor_str = actor.slug();
+    let solves = get_actor_solves(actor, db_pool.clone()).await?;
     let challs = challs_client
         .list_challenges(ListChallengesRequest {
-            actor,
-            solved_challenges: HashMap::new(),
+            actor: actor_str,
+            solved_challenges: solves,
             total_competitors: total_competitors as u64,
             require_release: current_role.is_none() || current_role.unwrap() < UserRole::Author,
         })
@@ -64,7 +131,7 @@ async fn get_challenges_for_actor_internal(
 
     let result = challs
         .into_iter()
-        .filter(|c| can_see_hidden || c.release_timestamp.unwrap_or(0) as u32 <= current_ts)
+        .filter(|c| can_see_hidden || (c.release_timestamp.unwrap_or(0) as u32) <= current_ts)
         .map(|c| CtfChallengeMetadata {
             id: c.id,
             name: c.name,
@@ -85,15 +152,16 @@ async fn get_challenges_for_actor_internal(
 
 pub async fn get_challenges_for_actor(
     context: &Context,
-    actor: String,
+    actor: Actor,
 ) -> juniper::FieldResult<Vec<CtfChallengeMetadata>> {
     let current_role = context.user.as_ref().map(|u| u.role);
     let challenges_client = context.challenges_client();
     let total_competitors = context.total_competitors;
     context
         .challenges_cache
-        .get_with(actor.clone(), async {
+        .get_with(actor.slug(), async {
             get_challenges_for_actor_internal(
+                &context.base.db_pool,
                 challenges_client,
                 current_role,
                 actor,
@@ -106,8 +174,7 @@ pub async fn get_challenges_for_actor(
 
 pub async fn get_challenges(context: &Context) -> juniper::FieldResult<Vec<CtfChallengeMetadata>> {
     let auth = context.require_authentication()?;
-    let actor = auth.actor();
-    get_challenges_for_actor(context, actor).await
+    get_challenges_for_actor(context, auth.actor_details()).await
 }
 
 #[graphql_object]

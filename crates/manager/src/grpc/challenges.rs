@@ -131,7 +131,7 @@ impl ChallengesService for ChallengeManager {
                     &chall.metadata,
                     solve_info
                         .as_ref()
-                        .map(|s| s.current_solves as u32)
+                        .map(|s| s.total_solves as u32)
                         .unwrap_or(0),
                     solve_info
                         .as_ref()

@@ -50,11 +50,44 @@ pub struct AuthenticatedUser {
     pub team_slug: Option<String>,
 }
 
+pub enum Actor {
+    User {
+        id: uuid::Uuid,
+        username: String,
+    },
+    Team {
+        id: uuid::Uuid,
+        slug: String,
+    },
+}
+
+impl Actor {
+    pub fn slug(&self) -> String {
+        match self {
+            Actor::User { username, .. } => format!("user-{username}"),
+            Actor::Team { slug, .. } => format!("team-{slug}"),
+        }
+    }
+}
+
 impl AuthenticatedUser {
     pub fn actor(&self) -> String {
         match &self.team_slug {
             Some(slug) => format!("team-{slug}"),
             None => format!("user-{}", self.username),
+        }
+    }
+
+    pub fn actor_details(&self) -> Actor {
+        match &self.team_id {
+            Some(id) => Actor::Team {
+                id: id.clone(),
+                slug: self.team_slug.clone().unwrap_or_default(),
+            },
+            None => Actor::User {
+                id: self.user_id.clone(),
+                username: self.username.clone(),
+            },
         }
     }
 }

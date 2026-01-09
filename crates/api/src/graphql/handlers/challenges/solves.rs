@@ -4,10 +4,35 @@
 
 use juniper::graphql_object;
 
-use crate::db::models::{Solve, User, UserRole};
+use crate::{db::models::{Solve, User, UserRole}, graphql::Actor};
 
 use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
+
+impl Solve {
+    async fn actor(&self, ctx: &crate::graphql::Context) -> juniper::FieldResult<Actor> {
+        use crate::db::schema::teams;
+        use crate::db::schema::users::dsl::*;
+
+        let result = users
+            .left_join(teams::table)
+            .filter(id.eq(self.user_id))
+            .select((username, teams::id.nullable(), teams::slug.nullable()))
+            .first::<(String, Option<uuid::Uuid>, Option<String>)>(&mut ctx.get_db_conn().await)
+            .await?;
+
+        match result.1 {
+            Some(team_id_2) => Ok(Actor::Team {
+                id: team_id_2,
+                slug: result.2.unwrap_or_default(),
+            }),
+            None => Ok(Actor::User {
+                id: self.user_id,
+                username: result.0,
+            }),
+        }
+    }
+}
 
 #[graphql_object]
 impl Solve {
@@ -33,30 +58,14 @@ impl Solve {
         Ok(user_record)
     }
 
-    pub async fn actor(&self, ctx: &crate::graphql::Context) -> juniper::FieldResult<String> {
-        use crate::db::schema::teams;
-        use crate::db::schema::users::dsl::*;
-
-        let result = users
-            .left_join(teams::table)
-            .filter(id.eq(self.user_id))
-            .select((username, teams::slug.nullable()))
-            .first::<(String, Option<String>)>(&mut ctx.get_db_conn().await)
-            .await?;
-
-        match result.1 {
-            Some(team_name) => Ok(format!("team-{}", team_name)),
-            None => Ok(format!("user-{}", result.0)),
-        }
-    }
-
     pub async fn challenge(
         &self,
         ctx: &crate::graphql::Context,
     ) -> juniper::FieldResult<crate::graphql::handlers::challenges::CtfChallengeMetadata> {
         use crate::graphql::handlers::challenges::get_challenges_for_actor;
 
-        let challenges = get_challenges_for_actor(ctx, self.actor(ctx).await?).await?;
+        let actor = self.actor(ctx).await?;
+        let challenges = get_challenges_for_actor(ctx, actor).await?;
 
         challenges
             .into_iter()

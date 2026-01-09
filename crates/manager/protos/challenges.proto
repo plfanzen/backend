@@ -11,8 +11,7 @@ import "shared.proto";
 message SolvedChallenge {
   // Use 0 if the actor has never solved this challenge
   int32 actor_nth_solve = 1;
-  int32 times_solved    = 2;
-  int32 current_solves  = 3;
+  int32 total_solves    = 2;
 }
 
 message ListChallengesRequest {
