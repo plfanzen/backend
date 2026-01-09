@@ -10,7 +10,7 @@ pub mod solves;
 
 use std::collections::HashMap;
 
-use diesel::{dsl::sql, prelude::*, sql_types::BigInt};
+use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
 use juniper::graphql_object;
 
@@ -21,6 +21,16 @@ use crate::{
         ListChallengesRequest, SolvedChallenge, challenges_service_client::ChallengesServiceClient,
     },
 };
+
+#[derive(QueryableByName)]
+struct SolveRankResult {
+    #[diesel(sql_type = diesel::sql_types::Text)]
+    challenge_id: String,
+    #[diesel(sql_type = diesel::sql_types::BigInt)]
+    solve_rank: i64,
+    #[diesel(sql_type = diesel::sql_types::BigInt)]
+    total_solves: i64,
+}
 
 #[derive(Debug, Clone)]
 pub struct CtfChallengeMetadata {
@@ -52,53 +62,62 @@ async fn get_actor_solves(
 
     let actor_solves = match actor_details {
         Actor::User { id: uid, .. } => {
-            use crate::db::schema::solves::dsl::*;
-            solves
-                .select((
-                    challenge_id,
-                    sql::<BigInt>(
-                        "row_number() OVER ( PARTITION BY user_id, challenge_id ORDER BY solved_at ASC )"
-                    ),
-                    sql::<BigInt>("COUNT(*) OVER ( PARTITION BY challenge_id )"),
-                ))
-                .filter(crate::db::schema::solves::user_id.eq(uid))
-                .order_by((solved_at.asc(), challenge_id.asc()))
-                .load::<(String, i64, i64)>(&mut conn).await?
+            diesel::sql_query(
+                "WITH first_solves AS (
+                    SELECT challenge_id, user_id, MIN(solved_at) as first_solve_at
+                    FROM solves
+                    GROUP BY challenge_id, user_id
+                ),
+                user_ranks AS (
+                    SELECT 
+                        challenge_id,
+                        user_id,
+                        ROW_NUMBER() OVER (PARTITION BY challenge_id ORDER BY first_solve_at ASC) as solve_rank,
+                        COUNT(*) OVER (PARTITION BY challenge_id) as total_solves
+                    FROM first_solves
+                )
+                SELECT challenge_id, solve_rank, total_solves
+                FROM user_ranks
+                WHERE user_id = $1"
+            )
+            .bind::<diesel::sql_types::Uuid, _>(uid)
+            .load::<SolveRankResult>(&mut conn)
+            .await?
         }
         Actor::Team { id: team_id, .. } => {
-            use crate::db::schema::solves::dsl::*;
-            solves
-                .inner_join(
-                    crate::db::schema::users::table.on(user_id.eq(crate::db::schema::users::id))
+            diesel::sql_query(
+                "WITH team_first_solves AS (
+                    SELECT s.challenge_id, u.team_id, MIN(s.solved_at) as first_solve_at
+                    FROM solves s
+                    INNER JOIN users u ON s.user_id = u.id
+                    WHERE u.team_id IS NOT NULL
+                    GROUP BY s.challenge_id, u.team_id
+                ),
+                team_ranks AS (
+                    SELECT 
+                        challenge_id,
+                        team_id,
+                        ROW_NUMBER() OVER (PARTITION BY challenge_id ORDER BY first_solve_at ASC) as solve_rank,
+                        COUNT(*) OVER (PARTITION BY challenge_id) as total_solves
+                    FROM team_first_solves
                 )
-                .left_join(
-                    crate::db::schema::teams::table.on(
-                        crate::db::schema::users::team_id.eq(
-                            crate::db::schema::teams::id.nullable()
-                        )
-                    )
-                )
-                .select((
-                    challenge_id,
-                    sql::<BigInt>(
-                        "row_number() OVER ( PARTITION BY user_id, challenge_id ORDER BY solved_at ASC )"
-                    ),
-                    sql::<BigInt>("COUNT(*) OVER ( PARTITION BY challenge_id )"),
-                ))
-                .filter(crate::db::schema::teams::id.eq(team_id))
-                .order_by((solved_at.asc(), challenge_id.asc()))
-                .load::<(String, i64, i64)>(&mut conn).await?
+                SELECT challenge_id, solve_rank, total_solves
+                FROM team_ranks
+                WHERE team_id = $1"
+            )
+            .bind::<diesel::sql_types::Uuid, _>(team_id)
+            .load::<SolveRankResult>(&mut conn)
+            .await?
         }
     };
 
-    // Actor -
     let mut result: HashMap<String, SolvedChallenge> = HashMap::new();
-    for (chall_id, solve_number, total_solves) in actor_solves {
+    for row in actor_solves {
         result.insert(
-            chall_id.clone(),
+            row.challenge_id.clone(),
             SolvedChallenge {
-                actor_nth_solve: solve_number as i32,
-                total_solves: total_solves as i32,
+                actor_nth_solve: row.solve_rank as i32,
+                total_solves: row.total_solves as i32,
             },
         );
     }
