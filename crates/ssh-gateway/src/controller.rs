@@ -34,6 +34,11 @@ async fn reconcile(object: Arc<SSHGateway>, ctx: Arc<Data>) -> Result<Action, Er
     if api.get_opt(&spec.backend_service).await?.is_none() {
         // Reconcile after 10 seconds for non-existent services
         // TODO: Backoff
+        tracing::warn!(
+            "Backend service {} does not exist in namespace {}, will retry",
+            spec.backend_service,
+            ns
+        );
         return Ok(Action::requeue(Duration::from_secs(10)));
     }
     let backend_name = format!("{}:{}", name, ns);
