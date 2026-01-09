@@ -23,6 +23,7 @@ fn json_into_js(
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(untagged)]
 pub enum FlagValidator {
     String {
         flag: String,
