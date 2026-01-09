@@ -41,6 +41,13 @@ async fn reconcile(object: Arc<SSHGateway>, ctx: Arc<Data>) -> Result<Action, Er
         backend_registry.remove_backend(&backend_name).await;
         return Ok(Action::await_change());
     }
+    tracing::info!(
+        "Reconciling SSHGateway {}/{} to backend {}:{}",
+        ns,
+        name,
+        spec.backend_service,
+        spec.backend_port
+    );
     backend_registry
         .add_backend(
             backend_name,
