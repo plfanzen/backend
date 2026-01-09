@@ -33,12 +33,32 @@ fn get_connection_details(
     let mut connection_info = vec![];
     for (svc_id, svc) in &challenge.compose.services {
         for exposed_port in compose_spec::service::ports::into_long_iter(svc.ports.clone()) {
-            let uses_ssh_gateway = exposed_port
-                .app_protocol
-                .as_ref()
-                .is_some_and(|p| p.to_lowercase() == "ssh")
-                && exposed_port.extensions.contains_key("x-username")
-                && exposed_port.extensions.contains_key("x-password");
+            let mut uses_ssh_gateway = false;
+            let port;
+            let protocol;
+            if exposed_port.protocol.as_ref().is_none_or(|p| p.is_tcp()) {
+                match exposed_port.app_protocol {
+                    Some(proto) if proto.to_lowercase() == "http".to_string() => {
+                        protocol = Protocol::Https as i32;
+                        port = 443;
+                    }
+                    Some(proto) if proto.to_lowercase() == "ssh".to_string() => {
+                        protocol = Protocol::Ssh as i32;
+                        port = 2222;
+                        uses_ssh_gateway = exposed_port.extensions.contains_key("x-username")
+                            && exposed_port.extensions.contains_key("x-password");
+                    }
+                    _ => {
+                        protocol = Protocol::Tcp as i32;
+                        port = 443;
+                    }
+                }
+            } else if exposed_port.protocol.as_ref().is_some_and(|p| p.is_udp()) {
+                protocol = Protocol::Udp as i32;
+                port = 0; // TODO: UDP is not implemented yet.
+            } else {
+                continue;
+            }
             connection_info.push(ConnectionInfo {
                 host: format!(
                     "{}-{}-{}.{}",
@@ -50,22 +70,8 @@ fn get_connection_details(
                     full_instance_ns(challenge_id, instance_id),
                     std::env::var("EXPOSED_DOMAIN").unwrap_or("localhost".to_string())
                 ),
-                port: 443,
-                protocol: if exposed_port.protocol.as_ref().is_none_or(|p| p.is_tcp()) {
-                    match exposed_port.app_protocol {
-                        Some(proto) if proto.to_lowercase() == "http".to_string() => {
-                            Protocol::Https as i32
-                        }
-                        Some(proto) if proto.to_lowercase() == "ssh".to_string() => {
-                            Protocol::Ssh as i32
-                        }
-                        _ => Protocol::Tcp as i32,
-                    }
-                } else if exposed_port.protocol.as_ref().is_some_and(|p| p.is_udp()) {
-                    Protocol::Udp as i32
-                } else {
-                    continue;
-                },
+                port,
+                protocol,
                 ssh_username: if uses_ssh_gateway {
                     Some(format!(
                         "{}-{}:{}",
