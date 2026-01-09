@@ -23,7 +23,7 @@ pub async fn is_instance_running(
 ) -> bool {
     let api: Api<Pod> = Api::namespaced(
         kube_client.clone(),
-        format!("challenge-{}-instance-{}", challenge_id, instance_id).as_str(),
+        full_instance_ns(challenge_id, instance_id).as_str(),
     );
     // Check if all pods are running, if not (or there are none), return false
     let lp = ListParams::default();
@@ -113,7 +113,7 @@ pub async fn prepare_instance(
         let instance_suffix: String = (0..12)
             .map(|_| format!("{:x}", rand::rng().random_range(0..16)))
             .collect();
-        let instance_name = format!("challenge-{}-instance-{}", challenge_id, instance_suffix);
+        let instance_name = full_instance_ns(challenge_id, &instance_suffix);
         if api.get_opt(&instance_name).await?.is_some() {
             continue;
         }
@@ -134,8 +134,15 @@ pub async fn prepare_instance(
             ..Default::default()
         };
         api.create(&kube::api::PostParams::default(), &ns).await?;
-        return Ok(instance_name);
+        return Ok(instance_suffix);
     }
+}
+
+pub fn full_instance_ns(
+    challenge_id: &str,
+    instance_id: &str,
+) -> String {
+    format!("challenge-{}-instance-{}", challenge_id, instance_id)
 }
 
 pub async fn delete_instance(
@@ -145,7 +152,7 @@ pub async fn delete_instance(
     instance_id: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let api: Api<Namespace> = Api::all(kube_client.clone());
-    let instance_ns = format!("challenge-{}-instance-{}", challenge_id, instance_id);
+    let instance_ns = full_instance_ns(challenge_id, instance_id);
     let ns = api.get(&instance_ns).await?;
     if ns.metadata.labels.as_ref().and_then(|l| l.get("actor_id")) != Some(&actor_id.to_string()) {
         return Err("Instance does not belong to actor".into());

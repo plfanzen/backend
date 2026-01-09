@@ -22,6 +22,8 @@ pub async fn deploy_challenge(
     challenge: Challenge,
     exposed_domain: &str,
     working_dir: &Path,
+    actor: &str,
+    instance_id: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let requires_data_pvc = challenge
         .compose
@@ -52,7 +54,7 @@ pub async fn deploy_challenge(
                 }
                 sshgateways.extend(svc.as_ssh_gateways(
                     svc_id.to_string(),
-                    None,
+                    Some(challenge.metadata.get_password(actor, instance_id, "ssh")),
                 )?);
                 Ok((deployments, svcs, ingressroutes, ingressroutestcp, sshgateways))
             },

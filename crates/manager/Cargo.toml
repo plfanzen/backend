@@ -39,6 +39,8 @@ flate2 = "1.1.5"
 indexmap = "2.12.1"
 k8s-crds-kube-virt = "1.7.0"
 schemars = "1.2.0"
+hmac = { version = "0.12.1", features = ["std"] }
+sha2 = "0.10.9"
 
 [build-dependencies]
 tonic-prost-build = "0.14"

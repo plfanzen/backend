@@ -3,7 +3,7 @@ use ignore::WalkBuilder;
 use std::path::Path;
 use tar::Builder;
 
-use crate::repo::challenges::metadata::CtfChallengeMetadata;
+use crate::repo::challenges::metadata::{CtfChallengeMetadata, FlagValidator};
 
 pub fn safe_pack_challenge(source_dir: &Path) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
     let mut gz_data = Vec::new();
@@ -42,8 +42,9 @@ pub fn safe_pack_challenge(source_dir: &Path) -> Result<Vec<u8>, Box<dyn std::er
                     if let Some(md) = metadata {
                         let mut metadata: CtfChallengeMetadata =
                             serde_yaml::from_value(md.clone())?;
-                        metadata.flag = None;
-                        metadata.flag_validation_fn = None;
+                        metadata.flag_validator = FlagValidator::String {
+                            flag: "PLFANZEN{SORRY_NO_FALG_HERE}".to_string(),
+                        };
                         *md = serde_yaml::to_value(metadata)?;
                     }
                     let new_compose_content = serde_yaml::to_string(&compose)?;

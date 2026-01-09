@@ -14,7 +14,7 @@ use crate::grpc::api::{
     RetrieveFileResponse, StartChallengeInstanceRequest, StartChallengeInstanceResponse,
     StopChallengeInstanceRequest, StopChallengeInstanceResponse,
 };
-use crate::instances::InstanceState;
+use crate::instances::{InstanceState, full_instance_ns};
 use crate::repo::challenges::loader::tera::render_dir_recursively;
 use crate::repo::challenges::loader::{load_challenge_from_repo, load_challenges_from_repo};
 
@@ -25,12 +25,13 @@ pub struct ChallengeManager {
 }
 
 fn get_connection_details(
-    challenge: &compose_spec::Compose,
+    challenge: &crate::repo::challenges::loader::Challenge,
     challenge_id: &str,
     instance_id: &str,
+    actor: &str,
 ) -> Vec<ConnectionInfo> {
     let mut connection_info = vec![];
-    for (svc_id, svc) in &challenge.services {
+    for (svc_id, svc) in &challenge.compose.services {
         for exposed_port in compose_spec::service::ports::into_long_iter(svc.ports.clone()) {
             let uses_ssh_gateway = exposed_port
                 .app_protocol
@@ -40,14 +41,13 @@ fn get_connection_details(
                 && exposed_port.extensions.contains_key("x-password");
             connection_info.push(ConnectionInfo {
                 host: format!(
-                    "{}-{}-challenge-{}-instance-{}.{}",
+                    "{}-{}-{}.{}",
                     svc_id,
                     exposed_port
                         .published
                         .map(|r| r.start())
                         .unwrap_or(exposed_port.target),
-                    challenge_id,
-                    instance_id,
+                    full_instance_ns(challenge_id, instance_id),
                     std::env::var("EXPOSED_DOMAIN").unwrap_or("localhost".to_string())
                 ),
                 port: 443,
@@ -68,19 +68,22 @@ fn get_connection_details(
                 },
                 ssh_username: if uses_ssh_gateway {
                     Some(format!(
-                        "{}-{}:challenge-{}-instance-{}",
+                        "{}-{}:{}",
                         svc_id,
                         exposed_port
                             .published
                             .map(|r| r.start())
                             .unwrap_or(exposed_port.target),
-                        challenge_id,
-                        instance_id,
+                        full_instance_ns(challenge_id, instance_id),
                     ))
                 } else {
                     None
                 },
-                ssh_password: None,
+                ssh_password: if uses_ssh_gateway {
+                    Some(challenge.metadata.get_password(actor, instance_id, "ssh"))
+                } else {
+                    None
+                },
             });
         }
     }
@@ -210,8 +213,12 @@ impl ChallengesService for ChallengeManager {
                 request.challenge_id, e
             ))
         })?;
-        let connection_info =
-            get_connection_details(&challenge.compose, &request.challenge_id, &instance_id);
+        let connection_info = get_connection_details(
+            &challenge,
+            &request.challenge_id,
+            &instance_id,
+            &request.actor,
+        );
 
         let working_dir = tempfile::tempdir().map_err(|e| {
             tonic::Status::internal(format!(
@@ -235,10 +242,12 @@ impl ChallengesService for ChallengeManager {
 
         crate::instances::deploy::deploy_challenge(
             &self.kube_client,
-            &instance_id,
+            &full_instance_ns(&request.challenge_id, &instance_id),
             challenge,
             &std::env::var("EXPOSED_DOMAIN").unwrap_or("localhost".to_string()),
             &working_dir.path(),
+            &request.actor,
+            &instance_id,
         )
         .await
         .map_err(|e| {
@@ -326,8 +335,12 @@ impl ChallengesService for ChallengeManager {
                         request.challenge_id, e
                     ))
                 })?;
-        let connection_info =
-            get_connection_details(&challenge.compose, &request.challenge_id, &instance_id);
+        let connection_info = get_connection_details(
+            &challenge,
+            &request.challenge_id,
+            &instance_id,
+            &request.actor,
+        );
         Ok(Response::new(GetChallengeInstanceStatusResponse {
             is_deployed: true,
             is_ready,
