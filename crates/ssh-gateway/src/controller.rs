@@ -30,6 +30,11 @@ async fn reconcile(object: Arc<SSHGateway>, ctx: Arc<Data>) -> Result<Action, Er
         tracing::error!("Failed to get namespace!");
         return Ok(Action::requeue(Duration::from_secs(60)));
     };
+    let backend_name = format!("{}:{}", name, ns);
+    if object.metadata.deletion_timestamp.is_some() {
+        backend_registry.remove_backend(&backend_name).await;
+        return Ok(Action::await_change());
+    }
     let api: Api<Service> = Api::namespaced(ctx.client.clone(), ns);
     if api.get_opt(&spec.backend_service).await?.is_none() {
         // Reconcile after 10 seconds for non-existent services
@@ -40,11 +45,6 @@ async fn reconcile(object: Arc<SSHGateway>, ctx: Arc<Data>) -> Result<Action, Er
             ns
         );
         return Ok(Action::requeue(Duration::from_secs(10)));
-    }
-    let backend_name = format!("{}:{}", name, ns);
-    if object.metadata.deletion_timestamp.is_some() {
-        backend_registry.remove_backend(&backend_name).await;
-        return Ok(Action::await_change());
     }
     tracing::info!(
         "Reconciling SSHGateway {}/{} to backend {}:{}",
