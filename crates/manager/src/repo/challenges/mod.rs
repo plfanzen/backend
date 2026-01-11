@@ -6,3 +6,4 @@ pub mod compose;
 pub mod dir_packer;
 pub mod loader;
 pub mod metadata;
+pub mod vm;

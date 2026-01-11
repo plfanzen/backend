@@ -54,6 +54,26 @@ pub trait AsService {
     fn as_internal_svc(&self, id: String) -> k8s_openapi::api::core::v1::Service;
 }
 
+
+pub trait HasPorts {
+    fn get_ports(&self) -> &compose_spec::service::ports::Ports;
+}
+
+trait HasPortHelpers {
+    fn is_empty(&self) -> bool;
+    fn long_iter_clone(&self) -> impl Iterator<Item = compose_spec::service::ports::Port> + '_;
+}
+
+impl<T: HasPorts> HasPortHelpers for T {
+    fn is_empty(&self) -> bool {
+        self.get_ports().is_empty()
+    }
+    
+    fn long_iter_clone(&self) -> impl Iterator<Item = compose_spec::service::ports::Port> + '_ {
+        compose_spec::service::ports::into_long_iter(self.get_ports().clone())
+    }
+}
+
 pub trait AsExternalService {
     fn as_proxied_svc(
         &self,

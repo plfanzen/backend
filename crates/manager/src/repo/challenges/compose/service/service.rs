@@ -4,7 +4,7 @@
 
 use kube::api::ObjectMeta;
 
-use crate::repo::challenges::compose::service::ComposeServiceError;
+use crate::repo::challenges::compose::service::{ComposeServiceError, HasPortHelpers};
 
 impl super::AsService for compose_spec::Service {
     fn as_internal_svc(&self, id: String) -> k8s_openapi::api::core::v1::Service {
@@ -29,7 +29,13 @@ impl super::AsService for compose_spec::Service {
     }
 }
 
-impl super::AsExternalService for compose_spec::Service {
+impl super::HasPorts for compose_spec::Service {
+    fn get_ports(&self) -> &compose_spec::service::ports::Ports {
+        &self.ports
+    }
+}
+
+impl<T: super::HasPorts> super::AsExternalService for T {
     // This is still not publicly exposed, but will be targeted by Traefik
     // We currently do not use LoadBalancer services, but rather have this being proxied by Traefik
     // In the future, we may want to support LoadBalancer services
@@ -37,7 +43,7 @@ impl super::AsExternalService for compose_spec::Service {
         &self,
         id: String,
     ) -> Result<Option<k8s_openapi::api::core::v1::Service>, ComposeServiceError> {
-        if self.ports.is_empty() {
+        if self.is_empty() {
             return Ok(None);
         }
         Ok(Some(k8s_openapi::api::core::v1::Service {
@@ -53,7 +59,7 @@ impl super::AsExternalService for compose_spec::Service {
                         .collect(),
                 ),
                 ports: Some(
-                    compose_spec::service::ports::into_long_iter(self.ports.clone())
+                    self.long_iter_clone()
                         .map(|port| {
                             if port.host_ip.is_some() {
                                 return Err(ComposeServiceError::PortWithHostIp);

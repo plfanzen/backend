@@ -1,18 +1,18 @@
 use kube::api::ObjectMeta;
 
 use crate::{
-    repo::challenges::compose::service::ComposeServiceError,
+    repo::challenges::compose::service::{ComposeServiceError, HasPortHelpers, HasPorts},
     ssh::{SSHGateway, SSHGatewaySpec},
 };
 
-impl super::AsSshGateway for compose_spec::Service {
+impl<T: HasPorts> super::AsSshGateway for T {
     fn as_ssh_gateways(
         &self,
         id: String,
         ssh_password: Option<String>,
     ) -> Result<Vec<crate::ssh::SSHGateway>, ComposeServiceError> {
-        let ssh_ports = compose_spec::service::ports::into_long_iter(self.ports.clone());
-        Ok(ssh_ports
+        Ok(self
+            .long_iter_clone()
             .filter_map(|port| {
                 let is_ssh = port
                     .app_protocol

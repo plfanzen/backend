@@ -1,18 +1,22 @@
+// SPDX-FileCopyrightText: 2026 Aaron Dewes <aaron@nirvati.org>
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 use compose_spec::service::ports::Port;
 use k8s_crds_traefik::IngressRouteRoutesKind;
 use k8s_openapi::apimachinery::pkg::util::intstr::IntOrString;
 use kube::api::ObjectMeta;
 
-use crate::repo::challenges::compose::service::ComposeServiceError;
+use crate::repo::challenges::compose::service::{ComposeServiceError, HasPortHelpers, HasPorts};
 
-impl super::AsIngress for compose_spec::Service {
+impl<T: HasPorts> super::AsIngress for T {
     fn as_http_ingress(
         &self,
         id: String,
         full_instance_name: &str,
         exposed_domain: &str,
     ) -> Result<Option<k8s_crds_traefik::IngressRoute>, ComposeServiceError> {
-        let http_ports = compose_spec::service::ports::into_long_iter(self.ports.clone())
+        let http_ports = self.long_iter_clone()
             .filter(|port| {
                 port.app_protocol
                     .as_ref()
@@ -60,7 +64,7 @@ impl super::AsIngress for compose_spec::Service {
         full_instance_name: &str,
         exposed_domain: &str,
     ) -> Result<Option<k8s_crds_traefik::IngressRouteTCP>, ComposeServiceError> {
-        let external_ports = compose_spec::service::ports::into_long_iter(self.ports.clone())
+        let external_ports = self.long_iter_clone()
             .filter(|port| {
                 port.protocol.as_ref().is_none_or(|p| p.is_tcp())
                     && port.app_protocol.as_ref().is_none_or(|app_proto| {
