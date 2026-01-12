@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use std::collections::BTreeMap;
+
 use serde::{Deserialize, Serialize};
 
 use crate::repo::challenges::compose::service::{AsService, HasPorts};
@@ -38,7 +40,7 @@ impl VirtualMachine {
             metadata: k8s_openapi::apimachinery::pkg::apis::meta::v1::ObjectMeta {
                 name: Some(id.clone()),
                 labels: Some(
-                    [("challengevm".to_string(), id)]
+                    [("challengevm".to_string(), id.clone())]
                         .iter()
                         .cloned()
                         .collect(),
@@ -48,6 +50,14 @@ impl VirtualMachine {
             spec: VirtualMachineSpec {
                 running: Some(true),
                 template: VirtualMachineTemplate {
+                    metadata: Some(BTreeMap::from([
+                        (
+                            "labels".to_string(),
+                            serde_json::json!({
+                                "challengevm": id,
+                            }),
+                        ),
+                    ])),
                     spec: Some(VirtualMachineTemplateSpec {
                         domain: VirtualMachineTemplateSpecDomain {
                             cpu: Some(VirtualMachineTemplateSpecDomainCpu {
