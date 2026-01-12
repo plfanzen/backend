@@ -18,7 +18,9 @@ pub enum Disk {
 pub struct VirtualMachine {
     pub memory: String,
     pub cpu_cores: u32,
+    #[serde(default)]
     pub disks: Vec<Disk>,
+    #[serde(default)]
     pub ports: compose_spec::service::ports::Ports,
 }
 

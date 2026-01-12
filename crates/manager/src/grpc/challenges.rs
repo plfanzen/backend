@@ -155,7 +155,14 @@ impl ChallengesService for ChallengeManager {
                 categories: chall.metadata.categories,
                 authors: chall.metadata.authors,
                 attachments: chall.metadata.attachments,
-                can_start: !chall.compose.services.is_empty(),
+                can_start: !chall.compose.services.is_empty()
+                    || chall.compose.extensions.get("x-ctf-vms").is_some_and(|v| {
+                        serde_yaml::from_value::<
+                            HashMap<String, crate::repo::challenges::vm::VirtualMachine>,
+                        >(v.clone())
+                        .map(|vms| !vms.is_empty())
+                        .unwrap_or(false)
+                    }),
                 points,
                 difficulty: chall.metadata.difficulty,
                 can_export: chall.metadata.auto_publish_src,
@@ -192,7 +199,19 @@ impl ChallengesService for ChallengeManager {
                     ))
                 })?;
 
-        if challenge.compose.services.is_empty() {
+        if challenge.compose.services.is_empty()
+            && challenge
+                .compose
+                .extensions
+                .get("x-ctf-vms")
+                .is_none_or(|v| {
+                    serde_yaml::from_value::<
+                        HashMap<String, crate::repo::challenges::vm::VirtualMachine>,
+                    >(v.clone())
+                    .map(|vms| vms.is_empty())
+                    .unwrap_or(true)
+                })
+        {
             return Err(tonic::Status::failed_precondition(format!(
                 "Challenge {} has no services to start",
                 request.challenge_id
