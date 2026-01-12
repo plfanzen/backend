@@ -141,6 +141,14 @@ pub async fn deploy_challenge(
             .create(&Default::default(), &sshgateway)
             .await?;
     }
+    
+    let kube_virt_vm_api: Api<k8s_crds_kube_virt::VirtualMachine> =
+        Api::namespaced(sshgateway_api.into_client(), challenge_ns);
+    for kube_virt_vm in kube_virt_vms {
+        kube_virt_vm_api
+            .create(&Default::default(), &kube_virt_vm)
+            .await?;
+    }
 
     Ok(())
 }
