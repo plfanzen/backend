@@ -56,7 +56,7 @@ impl<T: HasPorts> super::AsSshGateway for T {
                         ..Default::default()
                     },
                     spec: SSHGatewaySpec {
-                        backend_service: format!("{}-exposed-ports", id),
+                        backend_service: id.clone(),
                         backend_port: port.target,
                         backend_username: username,
                         backend_password: password,
