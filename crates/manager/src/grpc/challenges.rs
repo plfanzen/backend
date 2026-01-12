@@ -31,8 +31,40 @@ fn get_connection_details(
     actor: &str,
 ) -> Vec<ConnectionInfo> {
     let mut connection_info = vec![];
-    for (svc_id, svc) in &challenge.compose.services {
-        for exposed_port in compose_spec::service::ports::into_long_iter(svc.ports.clone()) {
+    let all_ports = challenge
+        .compose
+        .services
+        .iter()
+        .map(|(svc_id, svc)| {
+            (
+                svc_id.to_string(),
+                compose_spec::service::ports::into_long_iter(svc.ports.clone()).collect::<Vec<_>>(),
+            )
+        })
+        .chain(
+            challenge
+                .compose
+                .extensions
+                .get("x-ctf-vms")
+                .and_then(|vms_value| {
+                    serde_yaml::from_value::<
+                        HashMap<String, crate::repo::challenges::vm::VirtualMachine>,
+                    >(vms_value.clone())
+                    .ok()
+                })
+                .into_iter()
+                .flat_map(|vms| {
+                    vms.into_iter().map(|(vm_id, vm)| {
+                        (
+                            vm_id,
+                            compose_spec::service::ports::into_long_iter(vm.ports.clone())
+                                .collect::<Vec<_>>(),
+                        )
+                    })
+                }),
+        );
+    for (svc_id, ports) in all_ports {
+        for exposed_port in ports {
             let mut uses_ssh_gateway = false;
             let port;
             let protocol;
