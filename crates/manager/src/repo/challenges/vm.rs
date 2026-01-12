@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use crate::repo::challenges::compose::service::{AsService, HasPorts};
 
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(untagged)]
 pub enum Disk {
     ContainerDisk { image: String },
     CloudInit { cloud_init_user_data_base64: String },
@@ -16,7 +17,7 @@ pub enum Disk {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct VirtualMachine {
     pub memory: String,
-    pub cpu: String,
+    pub cpu_cores: u32,
     pub disks: Vec<Disk>,
     pub ports: compose_spec::service::ports::Ports,
 }
@@ -48,7 +49,7 @@ impl VirtualMachine {
                     spec: Some(VirtualMachineTemplateSpec {
                         domain: VirtualMachineTemplateSpecDomain {
                             cpu: Some(VirtualMachineTemplateSpecDomainCpu {
-                                cores: Some(self.cpu.parse().unwrap_or(1)),
+                                cores: Some(self.cpu_cores as i32),
                                 ..Default::default()
                             }),
                             resources: Some(VirtualMachineTemplateSpecDomainResources {
