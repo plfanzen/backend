@@ -4,7 +4,10 @@
 
 use juniper::graphql_object;
 
-use crate::{db::models::{Solve, User, UserRole}, graphql::Actor};
+use crate::{
+    db::models::{Solve, User, UserRole},
+    graphql::Actor,
+};
 
 use diesel::prelude::*;
 use diesel_async::RunQueryDsl;

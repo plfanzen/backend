@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-use std::{collections::HashMap, path::Path};
+use std::path::Path;
 
 use compose_spec::Resource;
 use k8s_openapi::api::{apps::v1::Deployment, core::v1::PersistentVolumeClaim};
@@ -12,11 +12,12 @@ use crate::repo::challenges::{
     compose::{
         service::{
             AsDeployment, AsExternalService, AsIngress, AsService, AsSshGateway,
-            ComposeServiceError,
+            ComposeServiceError, HasLabels,
         },
         volume::{AsPvc, default_size_pvc, get_pvc},
     },
-    loader::Challenge, vm::VirtualMachine,
+    loader::Challenge,
+    vm::HasVms,
 };
 
 pub async fn deploy_challenge(
@@ -28,6 +29,8 @@ pub async fn deploy_challenge(
     actor: &str,
     instance_id: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    let policies = crate::repo::challenges::compose::service::networking::get_policies(&challenge);
+
     let requires_data_pvc = challenge
         .compose
         .services
@@ -40,11 +43,17 @@ pub async fn deploy_challenge(
     let mut ingressroutestcp = Vec::new();
     let mut sshgateways = Vec::new();
 
+    let vms = challenge.compose.get_vms();
+
     for (svc_id, svc) in challenge.compose.services {
+        let labels = svc.get_labels(&svc_id.to_string());
         deployments.push(svc.as_deployment(svc_id.to_string(), working_dir));
         svcs.push(svc.as_internal_svc(svc_id.to_string()));
-        if let Some(external_svc) = svc.as_proxied_svc(svc_id.to_string())? {
+        if let Some(external_svc) = svc.as_proxied_svc(svc_id.to_string(), Some(labels.clone()))? {
             svcs.push(external_svc);
+        }
+        if let Some(lb_svc) = svc.as_lb_svc(svc_id.to_string(), Some(labels.clone()))? {
+            svcs.push(lb_svc);
         }
         if let Some(ir) = svc.as_http_ingress(svc_id.to_string(), challenge_ns, exposed_domain)? {
             ingressroutes.push(ir);
@@ -55,18 +64,18 @@ pub async fn deploy_challenge(
         let ssh_password = challenge.metadata.get_password(actor, instance_id, "ssh");
         sshgateways.extend(svc.as_ssh_gateways(svc_id.to_string(), Some(ssh_password))?);
     }
-    
-    let mut kube_virt_vms: Vec<k8s_crds_kube_virt::VirtualMachine> = Vec::new();
-    
-    let vms: HashMap<String, VirtualMachine> = challenge.compose.extensions.get("x-ctf-vms")
-        .and_then(|vms_value| serde_yaml::from_value(vms_value.clone()).ok())
-        .unwrap_or_default();
 
-     for (vm_id, vm) in vms {
+    let mut kube_virt_vms: Vec<k8s_crds_kube_virt::VirtualMachine> = Vec::new();
+
+    for (vm_id, vm) in vms {
+        let labels = vm.get_labels(&vm_id.to_string());
         kube_virt_vms.push(vm.as_kube_virt(vm_id.to_string()));
         svcs.push(vm.as_internal_svc(vm_id.to_string()));
-        if let Some(external_svc) = vm.as_proxied_svc(vm_id.to_string())? {
+        if let Some(external_svc) = vm.as_proxied_svc(vm_id.to_string(), Some(labels.clone()))? {
             svcs.push(external_svc);
+        }
+        if let Some(lb_svc) = vm.as_lb_svc(vm_id.to_string(), Some(labels.clone()))? {
+            svcs.push(lb_svc);
         }
         if let Some(ir) = vm.as_http_ingress(vm_id.to_string(), challenge_ns, exposed_domain)? {
             ingressroutes.push(ir);
@@ -141,13 +150,19 @@ pub async fn deploy_challenge(
             .create(&Default::default(), &sshgateway)
             .await?;
     }
-    
+
     let kube_virt_vm_api: Api<k8s_crds_kube_virt::VirtualMachine> =
         Api::namespaced(sshgateway_api.into_client(), challenge_ns);
     for kube_virt_vm in kube_virt_vms {
         kube_virt_vm_api
             .create(&Default::default(), &kube_virt_vm)
             .await?;
+    }
+
+    let policy_api: Api<k8s_crds_cilium::CiliumNetworkPolicy> =
+        Api::namespaced(kube_client.clone(), challenge_ns);
+    for policy in policies {
+        policy_api.create(&Default::default(), &policy).await?;
     }
 
     Ok(())

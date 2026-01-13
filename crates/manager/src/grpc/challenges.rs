@@ -17,6 +17,7 @@ use crate::grpc::api::{
 use crate::instances::{InstanceState, full_instance_ns};
 use crate::repo::challenges::loader::tera::render_dir_recursively;
 use crate::repo::challenges::loader::{load_challenge_from_repo, load_challenges_from_repo};
+use crate::repo::challenges::vm::HasVms;
 
 use super::api::challenges_service_server::ChallengesService;
 pub struct ChallengeManager {
@@ -41,28 +42,12 @@ fn get_connection_details(
                 compose_spec::service::ports::into_long_iter(svc.ports.clone()).collect::<Vec<_>>(),
             )
         })
-        .chain(
-            challenge
-                .compose
-                .extensions
-                .get("x-ctf-vms")
-                .and_then(|vms_value| {
-                    serde_yaml::from_value::<
-                        HashMap<String, crate::repo::challenges::vm::VirtualMachine>,
-                    >(vms_value.clone())
-                    .ok()
-                })
-                .into_iter()
-                .flat_map(|vms| {
-                    vms.into_iter().map(|(vm_id, vm)| {
-                        (
-                            vm_id,
-                            compose_spec::service::ports::into_long_iter(vm.ports.clone())
-                                .collect::<Vec<_>>(),
-                        )
-                    })
-                }),
-        );
+        .chain(challenge.compose.get_vms().into_iter().map(|(vm_id, vm)| {
+            (
+                vm_id,
+                compose_spec::service::ports::into_long_iter(vm.ports.clone()).collect::<Vec<_>>(),
+            )
+        }));
     for (svc_id, ports) in all_ports {
         for exposed_port in ports {
             let mut uses_ssh_gateway = false;
@@ -188,13 +173,7 @@ impl ChallengesService for ChallengeManager {
                 authors: chall.metadata.authors,
                 attachments: chall.metadata.attachments,
                 can_start: !chall.compose.services.is_empty()
-                    || chall.compose.extensions.get("x-ctf-vms").is_some_and(|v| {
-                        serde_yaml::from_value::<
-                            HashMap<String, crate::repo::challenges::vm::VirtualMachine>,
-                        >(v.clone())
-                        .map(|vms| !vms.is_empty())
-                        .unwrap_or(false)
-                    }),
+                    || !chall.compose.get_vms().is_empty(),
                 points,
                 difficulty: chall.metadata.difficulty,
                 can_export: chall.metadata.auto_publish_src,
@@ -231,19 +210,7 @@ impl ChallengesService for ChallengeManager {
                     ))
                 })?;
 
-        if challenge.compose.services.is_empty()
-            && challenge
-                .compose
-                .extensions
-                .get("x-ctf-vms")
-                .is_none_or(|v| {
-                    serde_yaml::from_value::<
-                        HashMap<String, crate::repo::challenges::vm::VirtualMachine>,
-                    >(v.clone())
-                    .map(|vms| vms.is_empty())
-                    .unwrap_or(true)
-                })
-        {
+        if challenge.compose.services.is_empty() && challenge.compose.get_vms().is_empty() {
             return Err(tonic::Status::failed_precondition(format!(
                 "Challenge {} has no services to start",
                 request.challenge_id

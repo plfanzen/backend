@@ -2,20 +2,23 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+use std::collections::BTreeMap;
+
 use kube::api::ObjectMeta;
 
-use crate::repo::challenges::compose::service::{ComposeServiceError, HasPortHelpers};
+use crate::repo::challenges::compose::service::{ComposeServiceError, HasLabels, HasPortHelpers, networking::HasNetworkPolicy};
 
 impl super::AsService for compose_spec::Service {
     fn as_internal_svc(&self, id: String) -> k8s_openapi::api::core::v1::Service {
         k8s_openapi::api::core::v1::Service {
             metadata: ObjectMeta {
                 name: Some(id.clone()),
+                labels: Some(self.get_labels(&id)),
                 ..Default::default()
             },
             spec: Some(k8s_openapi::api::core::v1::ServiceSpec {
                 selector: Some(
-                    [("component".to_string(), id.clone())]
+                    [("compose-service-id".to_string(), id.clone())]
                         .iter()
                         .cloned()
                         .collect(),
@@ -42,6 +45,7 @@ impl<T: super::HasPorts> super::AsExternalService for T {
     fn as_proxied_svc(
         &self,
         id: String,
+        labels: Option<BTreeMap<String, String>>,
     ) -> Result<Option<k8s_openapi::api::core::v1::Service>, ComposeServiceError> {
         if self.is_empty() {
             return Ok(None);
@@ -49,11 +53,12 @@ impl<T: super::HasPorts> super::AsExternalService for T {
         Ok(Some(k8s_openapi::api::core::v1::Service {
             metadata: ObjectMeta {
                 name: Some(format!("{}-exposed-ports", id.clone())),
+                labels,
                 ..Default::default()
             },
             spec: Some(k8s_openapi::api::core::v1::ServiceSpec {
                 selector: Some(
-                    [("component".to_string(), id.clone())]
+                    [("compose-service-id".to_string(), id.clone())]
                         .iter()
                         .cloned()
                         .collect(),
@@ -100,6 +105,7 @@ impl<T: super::HasPorts> super::AsExternalService for T {
     fn as_lb_svc(
         &self,
         _id: String,
+        _labels: Option<BTreeMap<String, String>>,
     ) -> Result<Option<k8s_openapi::api::core::v1::Service>, ComposeServiceError> {
         Ok(None)
     }

@@ -51,14 +51,8 @@ pub struct AuthenticatedUser {
 }
 
 pub enum Actor {
-    User {
-        id: uuid::Uuid,
-        username: String,
-    },
-    Team {
-        id: uuid::Uuid,
-        slug: String,
-    },
+    User { id: uuid::Uuid, username: String },
+    Team { id: uuid::Uuid, slug: String },
 }
 
 impl Actor {

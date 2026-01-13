@@ -6,6 +6,7 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
+use crate::repo::challenges::compose::service::networking::NetworkPolicy;
 use crate::repo::challenges::compose::service::{AsService, HasPorts};
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -24,11 +25,30 @@ pub struct VirtualMachine {
     pub disks: Vec<Disk>,
     #[serde(default)]
     pub ports: compose_spec::service::ports::Ports,
+    pub network_policy: Option<NetworkPolicy>,
 }
 
 impl HasPorts for VirtualMachine {
     fn get_ports(&self) -> &compose_spec::service::ports::Ports {
         &self.ports
+    }
+}
+
+pub trait HasVms {
+    fn get_vms(&self) -> BTreeMap<String, VirtualMachine>;
+}
+
+impl HasVms for compose_spec::Compose {
+    fn get_vms(&self) -> BTreeMap<String, VirtualMachine> {
+        self.extensions
+            .get("x-ctf-vms")
+            .and_then(|v| {
+                serde_yaml::from_value::<
+                    BTreeMap<String, crate::repo::challenges::vm::VirtualMachine>,
+                >(v.clone())
+                .ok()
+            })
+            .unwrap_or_default()
     }
 }
 
@@ -40,7 +60,7 @@ impl VirtualMachine {
             metadata: k8s_openapi::apimachinery::pkg::apis::meta::v1::ObjectMeta {
                 name: Some(id.clone()),
                 labels: Some(
-                    [("challengevm".to_string(), id.clone())]
+                    [("virtual-machine-id".to_string(), id.clone())]
                         .iter()
                         .cloned()
                         .collect(),
@@ -54,7 +74,7 @@ impl VirtualMachine {
                         (
                             "labels".to_string(),
                             serde_json::json!({
-                                "challengevm": id,
+                                "virtual-machine-id": id,
                             }),
                         ),
                     ])),
@@ -126,7 +146,7 @@ impl AsService for VirtualMachine {
             },
             spec: Some(k8s_openapi::api::core::v1::ServiceSpec {
                 selector: Some(
-                    [("challengevm".to_string(), id.clone())]
+                    [("virtual-machine-id".to_string(), id.clone())]
                         .iter()
                         .cloned()
                         .collect(),

@@ -41,6 +41,7 @@ k8s-crds-kube-virt = "1.7.0"
 schemars = "1.2.0"
 hmac = { version = "0.12.1", features = ["std"] }
 sha2 = "0.10.9"
+k8s-crds-cilium = { version = "1.18.4", default-features = false }
 
 [build-dependencies]
 tonic-prost-build = "0.14"

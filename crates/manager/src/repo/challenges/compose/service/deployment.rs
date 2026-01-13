@@ -12,7 +12,7 @@ use std::path::Path;
 
 use kube::api::ObjectMeta;
 
-use crate::repo::challenges::compose::service::{AsDeployment, ComposeServiceError};
+use crate::repo::challenges::compose::service::{AsDeployment, ComposeServiceError, HasLabels};
 
 impl AsDeployment for compose_spec::Service {
     fn as_deployment(
@@ -32,17 +32,24 @@ impl AsDeployment for compose_spec::Service {
 
         let env = environment::process_environment(self, &working_dir)?;
         let replicas = calculate_replicas(self)?;
+        let mut labels = extract_deploy_labels(self);
+        let additional_labels = self.get_labels(&id);
+        if let Some(ref mut lbls) = labels {
+            lbls.extend(additional_labels);
+        } else {
+            labels = Some(additional_labels);
+        }
         Ok(k8s_openapi::api::apps::v1::Deployment {
             metadata: ObjectMeta {
                 name: Some(id.clone()),
-                labels: extract_deploy_labels(self),
+                labels,
                 ..Default::default()
             },
             spec: Some(k8s_openapi::api::apps::v1::DeploymentSpec {
                 replicas,
                 selector: k8s_openapi::apimachinery::pkg::apis::meta::v1::LabelSelector {
                     match_labels: Some(
-                        [("component".to_string(), id.clone())]
+                        [("compose-service-id".to_string(), id.clone())]
                             .iter()
                             .cloned()
                             .collect(),
@@ -114,7 +121,7 @@ fn build_pod_labels(
     svc: &compose_spec::Service,
     id: &str,
 ) -> std::collections::BTreeMap<String, String> {
-    [("component".to_string(), id.to_string())]
+    [("compose-service-id".to_string(), id.to_string())]
         .iter()
         .cloned()
         .chain(

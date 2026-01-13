@@ -16,7 +16,8 @@ impl<T: HasPorts> super::AsIngress for T {
         full_instance_name: &str,
         exposed_domain: &str,
     ) -> Result<Option<k8s_crds_traefik::IngressRoute>, ComposeServiceError> {
-        let http_ports = self.long_iter_clone()
+        let http_ports = self
+            .long_iter_clone()
             .filter(|port| {
                 port.app_protocol
                     .as_ref()
@@ -64,7 +65,8 @@ impl<T: HasPorts> super::AsIngress for T {
         full_instance_name: &str,
         exposed_domain: &str,
     ) -> Result<Option<k8s_crds_traefik::IngressRouteTCP>, ComposeServiceError> {
-        let external_ports = self.long_iter_clone()
+        let external_ports = self
+            .long_iter_clone()
             .filter(|port| {
                 port.protocol.as_ref().is_none_or(|p| p.is_tcp())
                     && port.app_protocol.as_ref().is_none_or(|app_proto| {
