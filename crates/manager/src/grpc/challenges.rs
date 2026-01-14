@@ -66,7 +66,8 @@ fn get_connection_details(
                             && exposed_port.extensions.contains_key("x-password");
                     }
                     _ => {
-                        protocol = Protocol::Tcp as i32;
+                        // TODO: We could support IPv6 services with direct TCP, then we would need to distinguish here
+                        protocol = Protocol::TcpTls as i32;
                         port = 443;
                     }
                 }
