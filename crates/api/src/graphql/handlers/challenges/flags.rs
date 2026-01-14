@@ -8,6 +8,7 @@ use crate::{
 };
 use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
+use serenity::all::{Builder, ChannelId, CreateMessage, GuildId};
 
 pub async fn submit_flag(
     context: &Context,
@@ -27,7 +28,7 @@ pub async fn submit_flag(
     let ts_now = chrono::Utc::now();
     let user = context.require_authentication()?;
 
-    // TODO: This allows submitting flags for unreleased challenges. I'm not sure if we should fix that.
+    // TODO: This allows submitting flags for unreleased challenges. We should probably fix that.
 
     let mut challenges_client = context.challenges_client();
 
@@ -71,6 +72,42 @@ pub async fn submit_flag(
             .returning(Solve::as_returning())
             .execute(&mut context.get_db_conn().await)
             .await?;
+        if let Some(discord_solves_channel) = std::env::var("DISCORD_SOLVES_CHANNEL_ID")
+            .ok()
+            .and_then(|id| id.parse::<u64>().ok())
+            && let Some(discord_solves_guild) = std::env::var("DISCORD_SOLVES_GUILD_ID")
+                .ok()
+                .and_then(|id| id.parse::<u64>().ok())
+            && let Some(discord_bot) = crate::discord::get_client().await
+        {
+            if let Some(ref team) = user.team_slug {
+                Builder::execute(
+                    CreateMessage::new().content(format!(
+                        ":tada: User **{}** from team **{}** just solved challenge **{}**!",
+                        user.username, team, challenge_id
+                    )),
+                    &discord_bot.http,
+                    (
+                        ChannelId::new(discord_solves_channel),
+                        Some(GuildId::new(discord_solves_guild)),
+                    ),
+                )
+                .await?;
+            } else {
+                Builder::execute(
+                    CreateMessage::new().content(format!(
+                        ":tada: User **{}** just solved challenge **{}**!",
+                        user.username, challenge_id
+                    )),
+                    &discord_bot.http,
+                    (
+                        ChannelId::new(discord_solves_channel),
+                        Some(GuildId::new(discord_solves_guild)),
+                    ),
+                )
+                .await?;
+            }
+        }
     } else {
         let new_invalid_submission = crate::db::models::NewInvalidSubmission {
             // This can be unwrap()ed safely because of the authentication check at the start of the function
@@ -83,6 +120,49 @@ pub async fn submit_flag(
             .values(&new_invalid_submission)
             .execute(&mut context.get_db_conn().await)
             .await?;
+        if let Some(discord_client) = crate::discord::get_client().await {
+            if let Some(discord_invalid_submissions_channel) =
+                std::env::var("DISCORD_PUBLIC_INVALID_SUBMISSIONS_CHANNEL_ID")
+                    .ok()
+                    .and_then(|id| id.parse::<u64>().ok())
+                && let Some(discord_invalid_submissions_guild) =
+                    std::env::var("DISCORD_PUBLIC_INVALID_SUBMISSIONS_GUILD_ID")
+                        .ok()
+                        .and_then(|id| id.parse::<u64>().ok())
+            {
+                Builder::execute(
+                    CreateMessage::new().content(format!(
+                        ":warning: User **{}** submitted an invalid flag for challenge **{}**.",
+                        user.username, new_invalid_submission.challenge_id
+                    )),
+                    &discord_client.http,
+                    (
+                        ChannelId::new(discord_invalid_submissions_channel),
+                        Some(GuildId::new(discord_invalid_submissions_guild)),
+                    ),
+                )
+                .await?;
+            }
+            if let Some(discord_private_invalid_submissions_channel) =
+                std::env::var("DISCORD_PRIVATE_INVALID_SUBMISSIONS_CHANNEL_ID")
+                    .ok()
+                    .and_then(|id| id.parse::<u64>().ok())
+                && let Some(discord_private_invalid_submissions_guild) =
+                    std::env::var("DISCORD_PRIVATE_INVALID_SUBMISSIONS_GUILD_ID")
+                        .ok()
+                        .and_then(|id| id.parse::<u64>().ok())
+            {
+                Builder::execute(
+                    CreateMessage::new().content(format!(
+                        ":warning: User **{}** submitted an invalid flag for challenge **{}**. Submitted flag: `{}`",
+                        user.username, new_invalid_submission.challenge_id, new_invalid_submission.submitted_flag
+                    )),
+                    &discord_client.http,
+                    (ChannelId::new(discord_private_invalid_submissions_channel), Some(GuildId::new(discord_private_invalid_submissions_guild)))
+                )
+                .await?;
+            }
+        }
     }
     Ok(solved_challenge)
 }

@@ -26,6 +26,16 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     }
     tracing_subscriber::fmt::init();
 
+    // This is required so the bot is shown as online on Discord
+    // Check if the DISCORD_TOKEN env var is set
+    if std::env::var("DISCORD_TOKEN").is_err() {
+        tracing::warn!("DISCORD_TOKEN environment variable is not set; Discord bot will not be started.");
+    } else {
+        let _bot_task = tokio::spawn(async move {
+            plfanzen_api::discord::run_new_client().await.unwrap();
+        });
+    }
+
     for var in &[
         "EMAIL_SMTP_SERVER",
         "EMAIL_SMTP_USERNAME",

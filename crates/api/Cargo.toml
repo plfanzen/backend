@@ -8,7 +8,7 @@ version.workspace = true
 edition = "2024"
 
 [dependencies]
-tokio = { version = "1.48.0", features = ["rt-multi-thread", "macros"] }
+tokio = { version = "1.48.0", features = ["rt-multi-thread", "macros", "sync"] }
 prost = "0.14.1"
 tonic-prost = "0.14.1"
 tonic = "0.14.1"
