@@ -40,6 +40,9 @@ async fn main() -> anyhow::Result<()> {
     config.inactivity_timeout = Some(std::time::Duration::from_secs(600));
     config.auth_rejection_time = std::time::Duration::from_millis(350);
     config.keys = vec![private_key];
+    config.methods = From::from(&[
+        russh::MethodKind::Password,
+    ] as &[russh::MethodKind]);
     let config = Arc::new(config);
 
     let gateway = Gateway::new();
