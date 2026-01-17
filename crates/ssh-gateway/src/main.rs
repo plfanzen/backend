@@ -6,8 +6,12 @@ use gateway::Gateway;
 use k8s_openapi::apiextensions_apiserver::pkg::apis::apiextensions::v1::CustomResourceDefinition;
 use kube::{Api, CustomResourceExt};
 use rand_core::OsRng;
-use russh::{keys::ssh_key::LineEnding, server::Server};
+use russh::{
+    keys::ssh_key::LineEnding,
+    server::{Server, run_stream},
+};
 use std::sync::Arc;
+use tracing::debug;
 
 use crate::cr::SSHGateway;
 
@@ -40,12 +44,10 @@ async fn main() -> anyhow::Result<()> {
     config.inactivity_timeout = Some(std::time::Duration::from_secs(600));
     config.auth_rejection_time = std::time::Duration::from_millis(350);
     config.keys = vec![private_key];
-    config.methods = From::from(&[
-        russh::MethodKind::Password,
-    ] as &[russh::MethodKind]);
+    config.methods = From::from(&[russh::MethodKind::Password] as &[russh::MethodKind]);
     let config = Arc::new(config);
 
-    let gateway = Gateway::new();
+    let mut gateway = Gateway::new();
 
     let socket = tokio::net::TcpListener::bind("0.0.0.0:2222").await?;
     println!("SSH gateway listening on 0.0.0.0:2222");
@@ -71,17 +73,32 @@ async fn main() -> anyhow::Result<()> {
             return Err(e.into());
         }
     }
-    // Spawn controller task that can dynamically manage backends
-    let controller = tokio::spawn(async move {
-        crate::controller::run_controller(client, registry)
-            .await
-            .expect("Failed to run controller");
+
+    tokio::spawn(async move {
+        if let Err(e) = crate::controller::run_controller(client, registry).await {
+            panic!("Controller failed: {:?}", e);
+        }
     });
 
-    // Run the gateway (this will take ownership but gateway_clone can still manage backends)
-    let mut gateway_server = gateway;
-    let (res1, res2) = tokio::join!(gateway_server.run_on_socket(config, &socket), controller);
-    res1?;
-    res2?;
-    Ok(())
+    loop {
+        let (socket, peer_addr) = socket.accept().await?;
+        let config = config.clone();
+        let handler = gateway.new_client(Some(peer_addr));
+
+        tokio::spawn(async move {
+            let session = match run_stream(config, socket, handler).await {
+                Ok(s) => s,
+                Err(e) => {
+                    debug!("Connection setup failed: {:?}", e);
+                    return;
+                }
+            };
+
+            if let Err(e) = session.await {
+                debug!("Connection closed with error: {:?}", e);
+            } else {
+                debug!("Connection closed");
+            }
+        });
+    }
 }
