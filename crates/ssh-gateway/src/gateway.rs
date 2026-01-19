@@ -74,6 +74,12 @@ impl Handler for GatewayHandler {
     type Error = anyhow::Error;
 
     async fn auth_password(&mut self, user: &str, password: &str) -> Result<Auth, Self::Error> {
+        if !user.contains(":") {
+            return Ok(Auth::Reject {
+                partial_success: false,
+                proceed_with_methods: None,
+            });
+        }
         tracing::info!("Client authenticating as user: {}", user);
 
         self.authenticated_user = Some(user.to_string());
