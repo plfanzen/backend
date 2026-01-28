@@ -28,8 +28,18 @@ impl Mutation {
         username: String,
         email: String,
         password: String,
+        captcha_challenge: Option<String>,
+        captcha_response: Option<String>,
     ) -> FieldResult<bool> {
-        handlers::users::create_user(username, email, password, context).await
+        handlers::users::create_user(
+            username,
+            email,
+            password,
+            context,
+            captcha_challenge,
+            captcha_response,
+        )
+        .await
     }
 
     async fn refresh_session(

@@ -8,8 +8,7 @@ use crate::{
         schema::users,
     },
     graphql::{
-        Context,
-        handlers::{event::get_event_config, sessions::SessionCredentials},
+        Context, captcha::verify_captcha_response, handlers::{event::get_event_config, sessions::SessionCredentials}
     },
 };
 use argon2::{
@@ -28,7 +27,16 @@ pub async fn create_user(
     email: String,
     password: String,
     context: &Context,
+    captcha_challenge: Option<String>,
+    captcha_response: Option<String>,
 ) -> FieldResult<bool> {
+    let passed_captcha = verify_captcha_response(&captcha_challenge.unwrap_or_default(), &captcha_response.unwrap_or_default()).await?;
+    if !passed_captcha {
+        return Err(juniper::FieldError::new(
+            "CAPTCHA verification failed",
+            juniper::Value::null(),
+        ));
+    }
     let mut role = crate::db::models::UserRole::Player;
     let user_count = users::table
         .count()

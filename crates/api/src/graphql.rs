@@ -16,6 +16,7 @@ use diesel_async::RunQueryDsl;
 use std::time::Duration;
 
 pub mod auth;
+mod captcha;
 mod handlers;
 mod mutation;
 mod query;

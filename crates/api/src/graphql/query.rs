@@ -4,6 +4,8 @@
 
 use juniper::graphql_object;
 
+use crate::graphql::captcha::CaptchaChallenge;
+
 use super::Context;
 
 pub struct Query;
@@ -55,5 +57,11 @@ impl Query {
 
     async fn teams(context: &Context) -> juniper::FieldResult<Vec<crate::db::models::Team>> {
         crate::graphql::handlers::teams::get_teams(context).await
+    }
+    
+    async fn captcha(
+        context: &Context,
+    ) -> juniper::FieldResult<CaptchaChallenge> {
+        crate::graphql::captcha::get_captcha_challenge(context).await
     }
 }
