@@ -51,7 +51,7 @@ pub async fn remind_xtea() -> serenity::Result<()> {
                         .and_then(|id| id.parse::<u64>().ok())
             {
                 Builder::execute(
-                    CreateMessage::new().content("@xtea418 Still hasn't submitted the Google CTF application. Plz submit it now!"),
+                    CreateMessage::new().content("<@496716151263330304> still hasn't submitted the Google CTF application. Plz submit it now or you will no longer be allowed to play in the sandbox!"),
                     &client.http,
                     (ChannelId::new(discord_public_invalid_submissions_channel), Some(GuildId::new(discord_public_invalid_submissions_guild)))
                 )
