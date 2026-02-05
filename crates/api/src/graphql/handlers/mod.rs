@@ -4,6 +4,7 @@
 
 pub mod challenges;
 pub mod event;
+mod owned_resource;
 pub mod repo;
 pub mod sessions;
 pub mod teams;
