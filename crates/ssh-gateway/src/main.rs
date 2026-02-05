@@ -18,6 +18,7 @@ use crate::cr::SSHGateway;
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt::init();
+    rustls::crypto::aws_lc_rs::default_provider().install_default().expect("Failed to set AWS-LC-RS as default TLS provider");
 
     let key_file =
         std::env::var("PRIVATE_KEY_FILE").unwrap_or_else(|_| "/data/ssh_host_key".to_string());
