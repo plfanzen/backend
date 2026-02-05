@@ -39,24 +39,6 @@ diesel::table! {
 }
 
 diesel::table! {
-    team_invitations (id) {
-        id -> Uuid,
-        user_id -> Nullable<Uuid>,
-        team_id -> Nullable<Uuid>,
-        invited_at -> Timestamptz,
-    }
-}
-
-diesel::table! {
-    team_join_requests (id) {
-        id -> Uuid,
-        user_id -> Nullable<Uuid>,
-        team_id -> Nullable<Uuid>,
-        requested_at -> Timestamptz,
-    }
-}
-
-diesel::table! {
     teams (id) {
         id -> Uuid,
         name -> Varchar,
@@ -90,18 +72,12 @@ diesel::table! {
 diesel::joinable!(invalid_submissions -> users (user_id));
 diesel::joinable!(sessions -> users (user_id));
 diesel::joinable!(solves -> users (user_id));
-diesel::joinable!(team_invitations -> teams (team_id));
-diesel::joinable!(team_invitations -> users (user_id));
-diesel::joinable!(team_join_requests -> teams (team_id));
-diesel::joinable!(team_join_requests -> users (user_id));
 diesel::joinable!(users -> teams (team_id));
 
 diesel::allow_tables_to_appear_in_same_query!(
     invalid_submissions,
     sessions,
     solves,
-    team_invitations,
-    team_join_requests,
     teams,
     users,
 );
