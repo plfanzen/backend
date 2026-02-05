@@ -44,6 +44,7 @@ serenity = "0.12.5"
 altcha-lib-rs = { version = "0.3.1", features = ["json"] }
 reqwest = { version = "0.13.1", features = ["json"] }
 async-trait = "0.1.89"
+rustls = { version = "0.23.36", features = ["aws-lc-rs"] }
 
 [build-dependencies]
 tonic-prost-build = "0.14"

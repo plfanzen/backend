@@ -18,6 +18,7 @@ mod utils;
 #[tokio::main]
 async fn main() {
     tracing_subscriber::fmt::init();
+    rustls::crypto::aws_lc_rs::default_provider().install_default().expect("Failed to set AWS-LC-RS as default TLS provider");
     let kube_client = kube::Client::try_default()
         .await
         .expect("Failed to create kube client");

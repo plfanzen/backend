@@ -25,6 +25,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         std::env::set_var("RUST_LOG", "debug");
     }
     tracing_subscriber::fmt::init();
+    rustls::crypto::aws_lc_rs::default_provider().install_default().expect("Failed to set AWS-LC-RS as default TLS provider");
 
     // This is required so the bot is shown as online on Discord
     // Check if the DISCORD_TOKEN env var is set
