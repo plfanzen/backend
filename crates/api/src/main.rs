@@ -39,9 +39,6 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         let _bot_task = tokio::spawn(async move {
             plfanzen_api::discord::run_new_client().await.unwrap();
         });
-        let _xtea_task = tokio::spawn(async move  {
-            plfanzen_api::discord::remind_xtea().await.unwrap();
-        });
     }
 
     for var in &[
